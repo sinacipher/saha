@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  COUNSELOR
+  STUDENT
+  PARENT
+}
+
+model User {
+  id         String   @id @default(cuid())
+  role       Role
+  fullName   String?
+  nationalId String   @unique
+  phone      String   @unique
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  studentProfile    StudentProfile?   @relation("UserStudentProfile")
+  parentProfile     ParentProfile?    @relation("UserParentProfile")
+  counselorStudents StudentProfile[]  @relation("CounselorStudents")
+  messages          Message[]
+}
+
+model StudentProfile {
+  id          String @id @default(cuid())
+  userId      String @unique
+  user        User   @relation("UserStudentProfile", fields: [userId], references: [id], onDelete: Cascade)
+  
+  // اتصال به مشاور
+  counselorId String?
+  counselor   User?  @relation("CounselorStudents", fields: [counselorId], references: [id], onDelete: SetNull)
+  
+  parents     ParentProfile[] // یک دانش‌آموز می‌تواند چند والد داشته باشد
+}
+
+model ParentProfile {
+  id          String @id @default(cuid())
+  userId      String @unique
+  user        User   @relation("UserParentProfile", fields: [userId], references: [id], onDelete: Cascade)
+  
+  // اتصال به دانش‌آموز
+  studentId   String?
+  student     StudentProfile? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+}
+
+model Chat {
+  id          String   @id @default(cuid())
+  counselorId String
+  studentId   String?  // اگر چت مشاور با دانش‌آموز باشد
+  parentId    String?  // اگر چت مشاور با والد باشد
+  createdAt   DateTime @default(now())
+  
+  messages    Message[]
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  chatId    String
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  
+  content   String
+  createdAt DateTime @default(now())
+}
