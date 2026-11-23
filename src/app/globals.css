@@ -1,12 +1,31 @@
 @import "tailwindcss";
 
+:root {
+  --background: #FFFBEB;
+  --foreground: #1C1917;
+  --card: #FFFFFF;
+  --card-foreground: #1C1917;
+  --primary: #D97706;
+  --primary-foreground: #FFFFFF;
+  --secondary: #B45309;
+  --secondary-foreground: #FFFFFF;
+  --muted: #FEF3C7;
+  --muted-foreground: #78716C;
+  --accent: #FEF3C7;
+  --accent-foreground: #1C1917;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #E7E5E4;
+  --input: #E7E5E4;
+  --ring: #D97706;
+  --radius: 0.75rem;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
@@ -20,52 +39,14 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-:root {
-  /* پالت رنگی سحا (گرم) */
-  --background: #FFFBEB;       
-  --foreground: #1C1917;       
-
-  --card: #FFFFFF;               
-  --card-foreground: #1C1917;
-
-  --popover: #FFFFFF;
-  --popover-foreground: #1C1917;
-
-  --primary: #D97706;           
-  --primary-foreground: #FFFFFF;
-
-  --secondary: #B45309;         
-  --secondary-foreground: #FFFFFF;
-
-  --muted: #FEF3C7;
-  --muted-foreground: #78716C;
-
-  --accent: #FEF3C7;
-  --accent-foreground: #1C1917;
-
-  --destructive: #DC2626;        
-  --destructive-foreground: #FFFFFF;
-
-  --border: #E7E5E4;             
-  --input: #E7E5E4;
-  --ring: #D97706;
-
-  --radius: 0.75rem;
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-    font-family: var(--font-vazirmatn), sans-serif;
-  }
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-vazirmatn), sans-serif;
 }

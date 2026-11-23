@@ -19,7 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fa" dir="rtl">
-      <body className={`${vazirmatn.variable} font-sans antialiased`}>
+      <body suppressHydrationWarning className={`${vazirmatn.variable} font-sans antialiased`}>
         {children}
       </body>
     </html>
