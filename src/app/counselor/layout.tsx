@@ -25,9 +25,12 @@ export default async function CounselorLayout({
           <Link href="/counselor" className="block px-4 py-2 rounded-lg hover:bg-muted font-medium transition">
             دانش‌آموزان من
           </Link>
-          <Link href="/counselor/assessments" className="block px-4 py-2 rounded-lg hover:bg-muted font-medium transition">
-            آزمون‌ها
+          
+          {/* 👇 لینک جدید برای مشاور 👇 */}
+          <Link href="/counselor/simple-exams" className="block px-4 py-2 rounded-lg hover:bg-muted font-medium transition text-primary font-bold">
+            ساخت آزمون تستی (فایل)
           </Link>
+          {/* 👆 -------------------- 👆 */}
         </nav>
 
         <div className="p-4 border-t border-border">

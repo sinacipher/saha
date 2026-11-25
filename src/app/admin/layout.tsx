@@ -2,8 +2,6 @@ import { auth, signOut } from "@/auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 
-
-
 export default async function AdminLayout({
   children,
 }: {
@@ -34,8 +32,15 @@ export default async function AdminLayout({
           <Link href="/admin/chats" className="block px-4 py-2 rounded-lg hover:bg-muted font-medium transition">
             همه گفت‌وگوها
           </Link>
+          
+          {/* 👇 این لینک جدید اضافه شد 👇 */}
+          <Link href="/admin/simple-exams" className="block px-4 py-2 rounded-lg hover:bg-muted font-medium transition">
+            آزمون‌های ساده (فایل)
+          </Link>
+          {/* 👆 ------------------- 👆 */}
+
           <Link href="/admin/assessments" className="block px-4 py-2 rounded-lg hover:bg-muted font-medium transition">
-            مدیریت آزمون‌ها
+            مدیریت آزمون‌های پیشرفته
           </Link>
         </nav>
 

@@ -28,6 +28,11 @@ export default async function ParentLayout({ children }: { children: React.React
             تحلیل فرزند
           </Link>
         </nav>
+ 
+      <Link href="/parent/chat" className="block px-4 py-2 rounded-lg hover:bg-muted font-medium transition">
+  چت با مشاور
+</Link>
+
 
         <div className="border-t border-border p-4">
           <form action={async () => {

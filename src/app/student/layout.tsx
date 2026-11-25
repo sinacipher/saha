@@ -2,7 +2,11 @@ import { auth, signOut } from "@/auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 
-export default async function StudentLayout({ children }: { children: React.ReactNode }) {
+export default async function StudentLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   const session = await auth()
 
   if (!session || session.user.role !== "STUDENT") {
@@ -11,40 +15,40 @@ export default async function StudentLayout({ children }: { children: React.Reac
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
-      <aside className="flex w-64 flex-col border-l border-border bg-card">
-        <div className="border-b border-border p-6">
+      <aside className="w-64 border-l border-border bg-card flex flex-col">
+        <div className="p-6 border-b border-border">
           <h1 className="text-2xl font-bold text-primary">سحا | دانش‌آموز</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{session.user.name}</p>
+          <p className="text-sm text-muted-foreground mt-1">{session.user.name}</p>
         </div>
+      
+      <Link href="/student/chat" className="block px-4 py-2 rounded-lg hover:bg-muted font-medium transition">
+  چت با مشاور
+</Link>
 
-        <nav className="flex-1 p-4">
-          <Link href="/student" className="block rounded-lg px-4 py-2 font-medium transition hover:bg-muted">
-            گفت‌وگو با مشاور
+        <nav className="flex-1 p-4 space-y-2">
+          <Link href="/student" className="block px-4 py-2 rounded-lg hover:bg-muted font-medium transition">
+            داشبورد
           </Link>
-          <Link href="/student/assessments" className="block rounded-lg px-4 py-2 font-medium transition hover:bg-muted">
-            آزمون‌های من
-          </Link>
-          <Link href="/student/assessments/results" className="block rounded-lg px-4 py-2 font-medium transition hover:bg-muted">
-            نتایج من
-          </Link>
-          <Link href="/student/assessments/analytics" className="block rounded-lg px-4 py-2 font-medium transition hover:bg-muted">
-            تحلیل عملکرد
+          <Link href="/student/simple-exams" className="block px-4 py-2 rounded-lg hover:bg-muted font-medium transition text-primary font-bold">
+            آزمون‌های تستی من
           </Link>
         </nav>
 
-        <div className="border-t border-border p-4">
+        <div className="p-4 border-t border-border">
           <form action={async () => {
             "use server"
             await signOut({ redirectTo: "/login" })
           }}>
-            <button className="w-full rounded-lg px-4 py-2 text-right font-medium text-destructive transition hover:bg-destructive/10">
+            <button className="w-full text-right px-4 py-2 text-destructive hover:bg-destructive/10 rounded-lg font-medium transition">
               خروج از حساب
             </button>
           </form>
         </div>
       </aside>
 
-      <main className="flex-1 p-8">{children}</main>
+      <main className="flex-1 p-8">
+        {children}
+      </main>
     </div>
   )
 }

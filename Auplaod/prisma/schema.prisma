@@ -1,0 +1,480 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  COUNSELOR
+  STUDENT
+  PARENT
+}
+
+enum QuestionStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  ARCHIVED
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum AssessmentType {
+  KONKUR_SIMULATION
+  PRACTICE_QUIZ
+}
+
+enum AssessmentStatus {
+  DRAFT
+  READY
+  SCHEDULED
+  IN_PROGRESS
+  SUBMITTED
+  RESULTS_PENDING
+  PUBLISHED
+  ARCHIVED
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  SUBMITTED
+  EXPIRED
+  CANCELLED
+}
+
+enum ImportStatus {
+  UPLOADING
+  PROCESSING
+  READY_FOR_REVIEW
+  IMPORTED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+enum ExportFormat {
+  XLSX
+  DOCX
+  PDF
+  JSON
+}
+
+model User {
+  id         String   @id @default(cuid())
+  role       Role
+  fullName   String?
+  nationalId String   @unique
+  phone      String   @unique
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  studentProfile    StudentProfile?   @relation("UserStudentProfile")
+  parentProfile     ParentProfile?    @relation("UserParentProfile")
+  counselorStudents StudentProfile[]  @relation("CounselorStudents")
+  messages          Message[]
+  authoredQuestions Question[]         @relation("QuestionAuthor")
+  createdAssessments Assessment[]       @relation("AssessmentCreator")
+  examAttempts      ExamAttempt[]       @relation("ExamAttemptStudent")
+}
+
+model StudentProfile {
+  id          String @id @default(cuid())
+  userId      String @unique
+  user        User   @relation("UserStudentProfile", fields: [userId], references: [id], onDelete: Cascade)
+  
+  // اتصال به مشاور
+  counselorId String?
+  counselor   User?  @relation("CounselorStudents", fields: [counselorId], references: [id], onDelete: SetNull)
+  
+  parents     ParentProfile[] // یک دانش‌آموز می‌تواند چند والد داشته باشد
+}
+
+model ParentProfile {
+  id          String @id @default(cuid())
+  userId      String @unique
+  user        User   @relation("UserParentProfile", fields: [userId], references: [id], onDelete: Cascade)
+  
+  // اتصال به دانش‌آموز
+  studentId   String?
+  student     StudentProfile? @relation(fields: [studentId], references: [id], onDelete: SetNull)
+}
+
+model Chat {
+  id          String   @id @default(cuid())
+  counselorId String
+  studentId   String?  // اگر چت مشاور با دانش‌آموز باشد
+  parentId    String?  // اگر چت مشاور با والد باشد
+  createdAt   DateTime @default(now())
+  
+  messages    Message[]
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  chatId    String
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  
+  content   String
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+}
+
+model AssessmentSubject {
+  id        String             @id @default(cuid())
+  name      String
+  nameEn    String?
+  isActive  Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  chapters  AssessmentChapter[]
+  questions Question[]
+
+  @@unique([name])
+}
+
+model AssessmentChapter {
+  id        String             @id @default(cuid())
+  subjectId String
+  subject   AssessmentSubject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  name      String
+  nameEn    String?
+  isActive  Boolean            @default(true)
+  createdAt DateTime           @default(now())
+  questions Question[]
+
+  @@unique([subjectId, name])
+}
+
+model QuestionPassage {
+  id        String     @id @default(cuid())
+  externalId String?
+  subjectId String?
+  title     String?
+  content   String
+  createdAt DateTime   @default(now())
+  questions Question[]
+
+  @@unique([externalId])
+}
+
+model Question {
+  id              String              @id @default(cuid())
+  externalId      String?
+  text            String
+  subjectId       String?
+  subject         AssessmentSubject?  @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  chapterId       String?
+  chapter         AssessmentChapter?  @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  passageId       String?
+  passage         QuestionPassage?    @relation(fields: [passageId], references: [id], onDelete: SetNull)
+  topic           String?
+  difficulty      Difficulty          @default(MEDIUM)
+  explanation     String?
+  tagsJson        Json                @default("[]")
+  source          String?
+  imageUrl        String?
+  status          QuestionStatus      @default(DRAFT)
+  version         Int                 @default(1)
+  authorId        String
+  author          User                @relation("QuestionAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  options         QuestionOption[]
+  versions        QuestionVersion[]
+  assessmentItems AssessmentQuestion[]
+  importItems     ImportItem[]
+
+  @@unique([externalId])
+  @@index([status, subjectId, chapterId, difficulty])
+}
+
+model QuestionOption {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  optionKey  String
+  text       String
+  isCorrect  Boolean  @default(false)
+  position   Int
+
+  @@unique([questionId, optionKey])
+  @@unique([questionId, position])
+}
+
+model QuestionVersion {
+  id        String   @id @default(cuid())
+  questionId String
+  question  Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  version   Int
+  snapshot  Json
+  changedBy String?
+  createdAt DateTime @default(now())
+
+  @@unique([questionId, version])
+}
+
+model Assessment {
+  id                 String                  @id @default(cuid())
+  title              String
+  description        String?
+  instructions       String?
+  type               AssessmentType
+  status             AssessmentStatus        @default(DRAFT)
+  durationSeconds    Int
+  startAt            DateTime?
+  endAt              DateTime?
+  resultReleaseAt    DateTime?
+  maxAttempts        Int                     @default(1)
+  randomizeQuestions Boolean                 @default(false)
+  randomizeOptions   Boolean                 @default(false)
+  allowNavigation    Boolean                 @default(true)
+  answerReleaseMode  String                  @default("AFTER_PUBLICATION")
+  settingsJson       Json                    @default("{}")
+  creatorId          String
+  creator            User                    @relation("AssessmentCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  sections           AssessmentSection[]
+  assignments        AssessmentAssignment[]
+  attempts           ExamAttempt[]
+  scoringRules       AssessmentScoringRule[]
+  results            AssessmentResult[]
+  auditLogs          AssessmentAuditLog[]
+
+  @@index([status, type, startAt, endAt])
+}
+
+model AssessmentSection {
+  id              String               @id @default(cuid())
+  assessmentId    String
+  assessment      Assessment           @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  subjectId       String?
+  position        Int
+  durationSeconds Int?
+  questionCount   Int
+  settingsJson    Json                 @default("{}")
+  questions       AssessmentQuestion[]
+
+  @@unique([assessmentId, position])
+}
+
+model AssessmentQuestion {
+  id          String            @id @default(cuid())
+  assessmentId String
+  sectionId   String
+  section     AssessmentSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  questionId  String
+  question    Question          @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  position    Int
+  snapshot    Json
+  pointsOverride Float?
+
+  @@unique([sectionId, position])
+  @@unique([assessmentId, questionId])
+  @@index([assessmentId])
+}
+
+model AssessmentAssignment {
+  id           String     @id @default(cuid())
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  studentId    String
+  assignedById String
+  createdAt    DateTime   @default(now())
+
+  @@unique([assessmentId, studentId])
+  @@index([studentId])
+}
+
+model AssessmentScoringRule {
+  id                String     @id @default(cuid())
+  assessmentId      String
+  assessment        Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  correctPoints     Float      @default(3)
+  incorrectPenalty  Float      @default(-1)
+  unansweredPoints  Float      @default(0)
+  subjectCoefficients Json     @default("{}")
+  sectionWeights    Json       @default("{}")
+  roundingPrecision Int        @default(2)
+
+  @@unique([assessmentId])
+}
+
+model ExamAttempt {
+  id            String        @id @default(cuid())
+  assessmentId  String
+  assessment    Assessment    @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       User          @relation("ExamAttemptStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  attemptNumber Int
+  status        AttemptStatus @default(IN_PROGRESS)
+  startedAt     DateTime      @default(now())
+  submittedAt   DateTime?
+  expiresAt     DateTime
+  timeSpentSeconds Int        @default(0)
+  scoringSnapshot Json        @default("{}")
+  answers       StudentAnswer[]
+  events        AttemptEvent[]
+  result        AssessmentResult?
+
+  @@unique([assessmentId, studentId, attemptNumber])
+  @@index([studentId, status])
+}
+
+model StudentAnswer {
+  id         String     @id @default(cuid())
+  attemptId  String
+  attempt    ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId String
+  optionKey  String?
+  markedForReview Boolean @default(false)
+  isSaved    Boolean    @default(false)
+  savedAt    DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@unique([attemptId, questionId])
+  @@index([attemptId])
+}
+
+model AttemptEvent {
+  id        String     @id @default(cuid())
+  attemptId String
+  attempt   ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  type      String
+  metadata  Json       @default("{}")
+  createdAt DateTime   @default(now())
+
+  @@index([attemptId, createdAt])
+}
+
+model AssessmentResult {
+  id                String     @id @default(cuid())
+  attemptId         String     @unique
+  attempt           ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  assessmentId      String
+  assessment        Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  studentId         String
+  totalQuestions    Int
+  correctAnswers    Int
+  incorrectAnswers  Int
+  unansweredAnswers Int
+  rawScore          Float
+  percentage        Float
+  subjectScoresJson Json       @default("{}")
+  sectionScoresJson Json       @default("{}")
+  percentile        Float?
+  internalRank      Int?
+  published         Boolean    @default(false)
+  publishedAt       DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@index([assessmentId, published])
+  @@index([studentId, published])
+}
+
+model ImportBatch {
+  id              String       @id @default(cuid())
+  importingUserId String
+  originalName    String
+  format          String
+  fingerprint     String?
+  status          ImportStatus @default(UPLOADING)
+  totalFound      Int          @default(0)
+  successfulCount Int          @default(0)
+  failedCount     Int          @default(0)
+  warningCount    Int          @default(0)
+  reportJson      Json         @default("{}")
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  items           ImportItem[]
+}
+
+model ImportItem {
+  id          String      @id @default(cuid())
+  batchId     String
+  batch       ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  questionId  String?
+  question    Question?   @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  rowNumber   Int?
+  sourceText  String?
+  normalized  Json
+  errorsJson  Json        @default("[]")
+  warningsJson Json       @default("[]")
+  imported    Boolean     @default(false)
+  duplicate   Boolean     @default(false)
+  retryCount  Int         @default(0)
+  state       String      @default("PENDING")
+  createdAt   DateTime    @default(now())
+}
+
+model AssessmentAuditLog {
+  id           String     @id @default(cuid())
+  assessmentId String?
+  assessment   Assessment? @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  actorId      String
+  action       String
+  entityType   String
+  entityId     String?
+  metadata     Json       @default("{}")
+  createdAt    DateTime   @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([assessmentId, createdAt])
+}
+
+model Otp {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+}
+model SimpleExam {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  fileData        String   // فایل PDF یا عکس به صورت Base64 ذخیره می‌شود
+  fileName        String
+  fileType        String
+  questionCount   Int
+  answerKeyJson   Json     // کلید پاسخ‌ها {"1": "A", "2": "B", ...}
+  durationMinutes Int
+  startAt         DateTime?
+  endAt           DateTime?
+  createdById     String
+  createdAt       DateTime @default(now())
+  
+  attempts        SimpleExamAttempt[]
+}
+
+model SimpleExamAttempt {
+  id              String   @id @default(cuid())
+  examId          String
+  exam            SimpleExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentId       String
+  answersJson     Json     // پاسخ‌های دانش‌آموز {"1": "A", "2": "C", ...}
+  correctCount    Int      @default(0)
+  incorrectCount  Int      @default(0)
+  unansweredCount Int      @default(0)
+  rawScore        Float    @default(0)
+  percentage      Float    @default(0)
+  submittedAt     DateTime @default(now())
+
+  @@unique([examId, studentId]) // هر دانش‌آموز فقط یک بار می‌تواند شرکت کند
+}

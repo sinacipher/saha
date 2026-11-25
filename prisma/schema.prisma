@@ -445,3 +445,36 @@ model Otp {
   attempts  Int      @default(0)
   createdAt DateTime @default(now())
 }
+model SimpleExam {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?
+  fileData        String   // فایل PDF یا عکس به صورت Base64 ذخیره می‌شود
+  fileName        String
+  fileType        String
+  questionCount   Int
+  answerKeyJson   Json     // کلید پاسخ‌ها {"1": "A", "2": "B", ...}
+  durationMinutes Int
+  startAt         DateTime?
+  endAt           DateTime?
+  createdById     String
+  createdAt       DateTime @default(now())
+  
+  attempts        SimpleExamAttempt[]
+}
+
+model SimpleExamAttempt {
+  id              String   @id @default(cuid())
+  examId          String
+  exam            SimpleExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentId       String
+  answersJson     Json     // پاسخ‌های دانش‌آموز {"1": "A", "2": "C", ...}
+  correctCount    Int      @default(0)
+  incorrectCount  Int      @default(0)
+  unansweredCount Int      @default(0)
+  rawScore        Float    @default(0)
+  percentage      Float    @default(0)
+  submittedAt     DateTime @default(now())
+
+  @@unique([examId, studentId]) // هر دانش‌آموز فقط یک بار می‌تواند شرکت کند
+}
