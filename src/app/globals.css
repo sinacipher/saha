@@ -19,6 +19,10 @@
   --input: #E7E5E4;
   --ring: #D97706;
   --radius: 0.75rem;
+    /* === Design System Tokens (new) === */
+  --surface-base: #FAFAF9;
+  --surface-raised: #FFFFFF;
+  --surface-sunken: #F5F5F4;
 }
 
 @theme inline {
@@ -43,6 +47,28 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+    /* === Design System Tokens (new) === */
+
+  /* Extended brand shades (complement existing --primary) */
+  --color-primary-50: #FEF3C7;
+  --color-primary-100: #FDE68A;
+  --color-primary-600: #B45309;
+  --color-primary-700: #92400E;
+
+  /* Surface elevation (three-tier layering) */
+  --color-surface-base: var(--surface-base);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+
+  /* Semantic colors */
+  --color-success: #059669;
+  --color-danger: #DC2626;
+  --color-info: #0284C7;
+
+  /* Custom elevation shadows (new names — no override of shadow-sm/md/lg) */
+  --shadow-card: 0 1px 3px 0 rgb(28 25 23 / 0.06), 0 1px 2px -1px rgb(28 25 23 / 0.04);
+  --shadow-card-hover: 0 4px 6px -1px rgb(28 25 23 / 0.08), 0 2px 4px -2px rgb(28 25 23 / 0.05);
+  --shadow-modal: 0 20px 25px -5px rgb(28 25 23 / 0.12), 0 8px 10px -6px rgb(28 25 23 / 0.06);
 }
 
 body {
