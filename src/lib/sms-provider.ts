@@ -1,18 +1,16 @@
 export async function sendSmsOtp(phone: string, code: string) {
   const apiKey = process.env.SMS_API_KEY
 
+  // Always log the OTP so you can see it in Vercel Logs
+  console.log(`\n=========================================`)
+  console.log(`🔑 OTP for ${phone} : ${code}`)
+  console.log(`=========================================\n`)
+
   if (!apiKey) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("SMS Provider API Key is missing in production.")
-    }
-    // Development fallback
-    console.log(`\n=========================================`)
-    console.log(`🔑 کد ورود برای ${phone} : ${code}`)
-    console.log(`=========================================\n`)
+    // No SMS provider configured — OTP is only in the logs.
+    // Login will still work.
     return
   }
 
-  // TODO: Implement actual provider (e.g., Kavenegar, SMS.ir) here.
-  // Example:
-  // await fetch(`https://api.kavenegar.com/v1/${apiKey}/sms/send.json?receptor=${phone}&message=${code}`)
+  // TODO: Real SMS provider integration here later
 }
