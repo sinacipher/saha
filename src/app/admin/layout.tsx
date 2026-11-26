@@ -39,9 +39,6 @@ export default async function AdminLayout({
           </Link>
           {/* 👆 ------------------- 👆 */}
 
-          <Link href="/admin/assessments" className="block px-4 py-2 rounded-lg hover:bg-muted font-medium transition">
-            مدیریت آزمون‌های پیشرفته
-          </Link>
         </nav>
 
         <div className="p-4 border-t border-border">
