@@ -2,6 +2,7 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
+import type { ExamWithAttempts } from "@/lib/prisma-types"
 
 export default async function ExamAnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -10,15 +11,14 @@ export default async function ExamAnalyticsPage({ params }: { params: Promise<{ 
     redirect("/login")
   }
 
-  const exam = await prisma.simpleExam.findUnique({
-    where: { id },
-    include: {
-      attempts: {
-        include: { },
-        orderBy: { percentage: "desc" }
-      }
+const exam = await prisma.simpleExam.findUnique({
+  where: { id },
+  include: {
+    attempts: {
+      orderBy: { percentage: "desc" }
     }
-  })
+  }
+}) as ExamWithAttempts | null
 
   if (!exam) notFound()
 

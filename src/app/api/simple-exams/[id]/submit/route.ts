@@ -103,9 +103,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
     
     // Handle Prisma unique constraint errors (race conditions)
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return NextResponse.json({ error: "شما قبلاً در این آزمون شرکت کرده‌اید" }, { status: 400 })
-    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2002") {
+    return NextResponse.json({ error: "شما قبلاً در این آزمون شرکت کرده‌اید" }, { status: 400 })
+  }
+}
 
     console.error(error)
     return NextResponse.json({ error: "خطای سرور در ثبت آزمون" }, { status: 500 })
