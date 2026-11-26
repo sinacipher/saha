@@ -1,8 +1,8 @@
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
+import { isAuthorizedToChat } from "@/lib/chat-auth"
 
-// دریافت پیام‌های یک اتاق چت
 export async function GET(request: Request) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -10,10 +10,14 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const receiverId = searchParams.get("receiverId")
 
-  if (!receiverId) return NextResponse.json({ error: "گیرنده مشخص نشده" }, { status: 400 })
+  if (!receiverId) return NextResponse.json({ error: "گیرنده مشخص نشده است" }, { status: 400 })
 
-  // پیدا کردن یا ساختن اتاق چت
-  let chat = await prisma.chat.findFirst({
+  const isAuthorized = await isAuthorizedToChat(session.user.id, session.user.role, receiverId)
+  if (!isAuthorized) {
+    return NextResponse.json({ error: "شما مجاز به مشاهده این گفتگو نیستید" }, { status: 403 })
+  }
+
+  const chat = await prisma.chat.findFirst({
     where: {
       OR: [
         { counselorId: session.user.id, studentId: receiverId },
@@ -28,17 +32,33 @@ export async function GET(request: Request) {
   return NextResponse.json({ messages: chat?.messages || [] })
 }
 
-// ارسال پیام جدید
 export async function POST(request: Request) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const body = await request.json()
+  let body;
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: "فرمت درخواست نامعتبر است" }, { status: 400 })
+  }
+
   const { receiverId, content } = body
+  
+  if (!receiverId || typeof content !== "string" || !content.trim()) {
+    return NextResponse.json({ error: "اطلاعات پیام ناقص یا نامعتبر است" }, { status: 400 })
+  }
 
-  if (!receiverId || !content) return NextResponse.json({ error: "اطلاعات ناقص است" }, { status: 400 })
+  if (content.length > 2000) {
+    return NextResponse.json({ error: "متن پیام بیش از حد طولانی است (حداکثر ۲۰۰۰ کاراکتر)" }, { status: 400 })
+  }
 
-  let chat = await prisma.chat.findFirst({
+  const isAuthorized = await isAuthorizedToChat(session.user.id, session.user.role, receiverId)
+  if (!isAuthorized) {
+    return NextResponse.json({ error: "شما مجاز به ارسال پیام به این کاربر نیستید" }, { status: 403 })
+  }
+
+  const existingChat = await prisma.chat.findFirst({
     where: {
       OR: [
         { counselorId: session.user.id, studentId: receiverId },
@@ -49,36 +69,42 @@ export async function POST(request: Request) {
     }
   })
 
-  if (!chat) {
-    // اگر اتاق وجود ندارد، با توجه به نقش کاربر آن را می‌سازیم
+  let chatId = existingChat?.id
+
+  if (!chatId) {
+    let chatData;
     if (session.user.role === "COUNSELOR") {
       const receiver = await prisma.user.findUnique({ where: { id: receiverId } })
-      chat = await prisma.chat.create({
-        data: {
-          counselorId: session.user.id,
-          studentId: receiver?.role === "STUDENT" ? receiverId : null,
-          parentId: receiver?.role === "PARENT" ? receiverId : null,
-        }
-      })
+      if (!receiver) return NextResponse.json({ error: "کاربر یافت نشد" }, { status: 404 })
+      
+      chatData = {
+        counselorId: session.user.id,
+        studentId: receiver.role === "STUDENT" ? receiverId : null,
+        parentId: receiver.role === "PARENT" ? receiverId : null,
+      }
     } else {
-      // اگر فرستنده دانش‌آموز یا والد باشد، گیرنده باید مشاور باشد
-      chat = await prisma.chat.create({
-        data: {
-          counselorId: receiverId,
-          studentId: session.user.role === "STUDENT" ? session.user.id : null,
-          parentId: session.user.role === "PARENT" ? session.user.id : null,
-        }
-      })
+      chatData = {
+        counselorId: receiverId,
+        studentId: session.user.role === "STUDENT" ? session.user.id : null,
+        parentId: session.user.role === "PARENT" ? session.user.id : null,
+      }
     }
+
+    const newChat = await prisma.chat.create({ data: chatData })
+    chatId = newChat.id
   }
 
-  await prisma.message.create({
-    data: {
-      chatId: chat.id,
-      senderId: session.user.id,
-      content
-    }
-  })
-
-  return NextResponse.json({ success: true })
+  try {
+    await prisma.message.create({
+      data: { 
+        chatId: chatId, 
+        senderId: session.user.id, 
+        content: content.trim() 
+      }
+    })
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Message creation failed:", error)
+    return NextResponse.json({ error: "خطا در ذخیره پیام در دیتابیس" }, { status: 500 })
+  }
 }

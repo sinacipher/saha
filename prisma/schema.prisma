@@ -438,25 +438,28 @@ model AssessmentAuditLog {
 }
 
 model Otp {
-  id        String   @id @default(cuid())
-  phone     String
-  code      String
-  expiresAt DateTime
-  attempts  Int      @default(0)
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  phone      String
+  hashedCode String   // 👈 Stores the hash, not plaintext
+  expiresAt  DateTime
+  attempts   Int      @default(0) // 👈 Tracks failed verification attempts
+  ipAddress  String?  // 👈 Tracks IP for rate limiting
+  createdAt  DateTime @default(now())
 }
 model SimpleExam {
   id              String   @id @default(cuid())
   title           String
   description     String?
-  fileData        String   // فایل PDF یا عکس به صورت Base64 ذخیره می‌شود
+  instructions    String?  // 👈 NEW
+  fileData        String
   fileName        String
   fileType        String
   questionCount   Int
-  answerKeyJson   Json     // کلید پاسخ‌ها {"1": "A", "2": "B", ...}
+  answerKeyJson   Json
   durationMinutes Int
   startAt         DateTime?
   endAt           DateTime?
+  resultsPublished Boolean @default(false) // 👈 NEW
   createdById     String
   createdAt       DateTime @default(now())
   
@@ -468,7 +471,8 @@ model SimpleExamAttempt {
   examId          String
   exam            SimpleExam @relation(fields: [examId], references: [id], onDelete: Cascade)
   studentId       String
-  answersJson     Json     // پاسخ‌های دانش‌آموز {"1": "A", "2": "C", ...}
+  startedAt       DateTime @default(now()) // 👈 NEW: Record exact start time
+  answersJson     Json
   correctCount    Int      @default(0)
   incorrectCount  Int      @default(0)
   unansweredCount Int      @default(0)
@@ -476,5 +480,5 @@ model SimpleExamAttempt {
   percentage      Float    @default(0)
   submittedAt     DateTime @default(now())
 
-  @@unique([examId, studentId]) // هر دانش‌آموز فقط یک بار می‌تواند شرکت کند
+  @@unique([examId, studentId])
 }

@@ -15,6 +15,17 @@ export default async function SimpleExamResultPage({ params }: { params: Promise
 
   if (!attempt) notFound()
 
+  // 👇 SECURITY CHECK: Prevent viewing results if not published yet 👇
+  if (!attempt.exam.resultsPublished) {
+    return (
+      <div className="max-w-2xl mx-auto p-10 mt-10 text-center bg-card border rounded-xl shadow-sm space-y-4">
+        <h1 className="text-2xl font-bold text-muted-foreground">پاسخ شما با موفقیت ثبت شد</h1>
+        <p>نتایج این آزمون هنوز توسط مشاور یا مدیر منتشر نشده است. لطفاً بعداً مراجعه کنید.</p>
+        <Link href="/student/simple-exams" className="inline-block bg-primary text-white px-6 py-2 rounded-lg">بازگشت</Link>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-2xl mx-auto mt-10">
       <div className="bg-card border border-border rounded-xl p-8 shadow-sm text-center space-y-6">
