@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useEffect, useState } from "react"
@@ -50,10 +49,13 @@ const navigation: Record<Role, NavigationItem[]> = {
 
   STUDENT: [
     { label: "داشبورد", href: "/student", icon: LayoutDashboard },
+    { label: "آزمون‌های من", href: "/student/simple-exams", icon: FileText },
+    { label: "گفت‌وگو با مشاور", href: "/student/chat", icon: MessageSquare },
   ],
 
   PARENT: [
     { label: "داشبورد", href: "/parent", icon: LayoutDashboard },
+    { label: "گفت‌وگو با مشاور", href: "/parent/chat", icon: MessageSquare },
   ],
 }
 
@@ -101,7 +103,6 @@ export default function DashboardShell({
 
   return (
     <div dir="rtl" className="min-h-screen bg-background text-foreground">
-      {/* Mobile Header */}
       <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-card px-4 md:hidden">
         <button
           type="button"
@@ -119,7 +120,6 @@ export default function DashboardShell({
       </header>
 
       <div className="flex min-h-[calc(100vh-4rem)] md:min-h-screen">
-        {/* Desktop Sidebar */}
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-l border-border bg-card md:flex">
           <SidebarContent
             role={role}
@@ -131,13 +131,11 @@ export default function DashboardShell({
           />
         </aside>
 
-        {/* Main Content */}
         <main className="min-w-0 flex-1 p-4 md:p-8">
           {children}
         </main>
       </div>
 
-      {/* Mobile Drawer */}
       {isOpen && (
         <div className="fixed inset-0 z-[100] md:hidden">
           <button
@@ -199,7 +197,6 @@ function SidebarContent({
 }: SidebarContentProps) {
   return (
     <>
-      {/* Brand */}
       <div className="border-b border-border p-6">
         <h1 className="text-2xl font-extrabold text-primary">سحا</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -207,7 +204,6 @@ function SidebarContent({
         </p>
       </div>
 
-      {/* User Card */}
       <div className="m-4 flex items-center gap-3 rounded-2xl bg-muted/70 p-4">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-600 text-white">
           {role === "ADMIN" ? (
@@ -223,7 +219,6 @@ function SidebarContent({
         </div>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 space-y-2 px-4 py-2">
         {items.map((item) => {
           const Icon = item.icon
@@ -251,7 +246,6 @@ function SidebarContent({
         })}
       </nav>
 
-      {/* Logout */}
       <div className="mt-6 border-t border-gray-200 p-4">
         <form action={logoutAction}>
           <button

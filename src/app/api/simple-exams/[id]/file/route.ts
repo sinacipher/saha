@@ -2,51 +2,59 @@ import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 
-// Toggle results publishing
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth()
-  if (!session?.user?.id || !["ADMIN", "COUNSELOR"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth()
 
-  const { id } = await params
-  const body = await req.json()
-
-  const exam = await prisma.simpleExam.findUnique({ where: { id } })
-  if (!exam) return NextResponse.json({ error: "آزمون یافت نشد" }, { status: 404 })
-
-  // Counselors can only edit their own exams
-  if (session.user.role === "COUNSELOR" && exam.createdById !== session.user.id) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
-
-  await prisma.simpleExam.update({
-    where: { id },
-    data: {
-      resultsPublished: body.resultsPublished,
-      instructions: body.instructions
+    if (!session?.user?.id || session.user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "دسترسی غیرمجاز است." },
+        { status: 403 }
+      )
     }
-  })
 
-  return NextResponse.json({ success: true })
-}
+    const { id } = await params
 
-// Delete exam
-export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth()
-  if (!session?.user?.id || !["ADMIN", "COUNSELOR"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (!id) {
+      return NextResponse.json(
+        { error: "شناسه آزمون نامعتبر است." },
+        { status: 400 }
+      )
+    }
+
+    const exam = await prisma.simpleExam.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        title: true,
+      },
+    })
+
+    if (!exam) {
+      return NextResponse.json(
+        { error: "آزمون موردنظر پیدا نشد." },
+        { status: 404 }
+      )
+    }
+
+    await prisma.simpleExam.delete({
+      where: { id },
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: "آزمون و تمام پاسخ‌های ثبت‌شده آن حذف شدند.",
+      deletedExamId: id,
+    })
+  } catch (error) {
+    console.error("DELETE_SIMPLE_EXAM_ERROR:", error)
+
+    return NextResponse.json(
+      { error: "خطای سرور هنگام حذف آزمون." },
+      { status: 500 }
+    )
   }
-
-  const { id } = await params
-  const exam = await prisma.simpleExam.findUnique({ where: { id } })
-  
-  if (!exam) return NextResponse.json({ error: "آزمون یافت نشد" }, { status: 404 })
-  if (session.user.role === "COUNSELOR" && exam.createdById !== session.user.id) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-  }
-
-  // The Cascade delete in Prisma will automatically remove attempts
-  await prisma.simpleExam.delete({ where: { id } })
-  return NextResponse.json({ success: true })
 }

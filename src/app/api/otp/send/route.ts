@@ -2,70 +2,146 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import crypto from "crypto"
 import { sendSmsOtp } from "@/lib/sms-provider"
+import {
+  normalizeNationalId,
+  isValidNationalIdFormat,
+  nationalIdVariants,
+} from "@/lib/national-id"
 
-const OTP_SECRET = process.env.AUTH_SECRET || "fallback-secret"
+const OTP_SECRET = process.env.AUTH_SECRET
 
 export async function POST(req: Request) {
   try {
-    const { nationalId } = await req.json()
-    
-    // 1. Generic response to prevent account enumeration
-    const genericResponse = NextResponse.json({ success: true, message: "اگر حساب شما وجود داشته باشد، کد برای شما ارسال می‌شود." })
+    if (!OTP_SECRET) {
+      console.error("AUTH_SECRET is missing")
+      return NextResponse.json(
+        { error: "تنظیمات امنیتی سرور کامل نیست." },
+        { status: 500 }
+      )
+    }
 
-    if (!nationalId) return genericResponse
+    const body = await req.json()
+    const nationalId = normalizeNationalId(String(body.nationalId || ""))
 
-    // Get IP for rate limiting
-    const ipAddress = req.headers.get("x-forwarded-for") || "unknown"
+    if (!isValidNationalIdFormat(nationalId)) {
+      return NextResponse.json(
+        { error: "کد ملی باید دقیقاً ۱۰ رقم باشد." },
+        { status: 400 }
+      )
+    }
 
-    // 2. Rate Limiting by IP (Max 10 requests per hour)
+    const ipAddress =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      "unknown"
+
+    // IP rate limit: 10 requests per hour
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+
     const ipRequestCount = await prisma.otp.count({
-      where: { ipAddress, createdAt: { gte: oneHourAgo } }
+      where: {
+        ipAddress,
+        createdAt: { gte: oneHourAgo },
+      },
     })
+
     if (ipRequestCount >= 10) {
-      return NextResponse.json({ error: "تعداد درخواست‌ها بیش از حد مجاز است." }, { status: 429 })
+      return NextResponse.json(
+        { error: "تعداد درخواست‌ها بیش از حد مجاز است. بعداً تلاش کنید." },
+        { status: 429 }
+      )
     }
 
-    const user = await prisma.user.findUnique({ where: { nationalId } })
-    if (!user || !user.isActive) {
-      // Return generic response to hide the fact the user doesn't exist or is inactive
-      return genericResponse 
-    }
-
-    // 3. Rate Limiting by Account (Max 3 requests per 5 minutes)
-    const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000)
-    const recentAccountOtps = await prisma.otp.count({
-      where: { phone: user.phone, createdAt: { gte: fiveMinsAgo } }
+    // Match English, Persian and Arabic digits in existing records.
+    const user = await prisma.user.findFirst({
+      where: {
+        nationalId: {
+          in: nationalIdVariants(nationalId),
+        },
+      },
     })
-    if (recentAccountOtps >= 3) {
-      return NextResponse.json({ error: "لطفاً ۵ دقیقه صبر کنید." }, { status: 429 })
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "این کد ملی در سامانه ثبت نشده است." },
+        { status: 404 }
+      )
     }
 
-    // 4. Generate and Hash OTP
-    const code = Math.floor(10000 + Math.random() * 90000).toString()
-    const hashedCode = crypto.createHmac("sha256", OTP_SECRET).update(code).digest("hex")
-    const expiresAt = new Date(Date.now() + 2 * 60 * 1000) // 2 minutes
+    if (!user.isActive) {
+      return NextResponse.json(
+        { error: "حساب کاربری شما غیرفعال است. با مدیر سامانه تماس بگیرید." },
+        { status: 403 }
+      )
+    }
 
-    // 5. Invalidate previous OTPs and save new one
+    // Account rate limit: 3 requests per 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+
+    const accountRequestCount = await prisma.otp.count({
+      where: {
+        phone: user.phone,
+        createdAt: { gte: fiveMinutesAgo },
+      },
+    })
+
+    if (accountRequestCount >= 3) {
+      return NextResponse.json(
+        { error: "تعداد درخواست‌ها زیاد است. پنج دقیقه صبر کنید." },
+        { status: 429 }
+      )
+    }
+
+    // Generate a secure five-digit OTP.
+    const code = crypto.randomInt(10000, 100000).toString()
+
+    const hashedCode = crypto
+      .createHmac("sha256", OTP_SECRET)
+      .update(code)
+      .digest("hex")
+
+    const expiresAt = new Date(Date.now() + 2 * 60 * 1000)
+
+    // Remove old codes and save the new one.
     await prisma.$transaction([
-      prisma.otp.deleteMany({ where: { phone: user.phone } }),
+      prisma.otp.deleteMany({
+        where: { phone: user.phone },
+      }),
+
       prisma.otp.create({
-        data: { phone: user.phone, hashedCode, expiresAt, ipAddress }
-      })
+        data: {
+          phone: user.phone,
+          hashedCode,
+          expiresAt,
+          ipAddress,
+        },
+      }),
     ])
 
-    // 6. Send SMS
     try {
       await sendSmsOtp(user.phone, code)
     } catch (error) {
-      console.error("SMS Delivery failed:", error)
-      return NextResponse.json({ error: "خطا در ارسال پیامک. لطفاً بعداً تلاش کنید." }, { status: 500 })
+      console.error("OTP delivery failed:", error)
+
+      await prisma.otp.deleteMany({
+        where: { phone: user.phone },
+      })
+
+      return NextResponse.json(
+        { error: "ارسال پیامک ناموفق بود. بعداً تلاش کنید." },
+        { status: 500 }
+      )
     }
 
-    return genericResponse
-
+    return NextResponse.json({
+      success: true,
+      message: "کد ورود با موفقیت ارسال شد.",
+    })
   } catch (error) {
-    console.error(error)
-    return NextResponse.json({ error: "خطای سرور" }, { status: 500 })
+    console.error("OTP send error:", error)
+
+    return NextResponse.json(
+      { error: "خطای داخلی سرور هنگام ارسال کد ورود." },
+      { status: 500 }
+    )
   }
 }

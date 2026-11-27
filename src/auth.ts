@@ -2,86 +2,156 @@ import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import { prisma } from "@/lib/prisma"
 import crypto from "crypto"
+import {
+  normalizeNationalId,
+  normalizeDigits,
+  isValidNationalIdFormat,
+  nationalIdVariants,
+} from "@/lib/national-id"
 
-const OTP_SECRET = process.env.AUTH_SECRET || "fallback-secret"
+const OTP_SECRET = process.env.AUTH_SECRET
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-    trustHost: true,
+  trustHost: true,
+
   providers: [
     Credentials({
       credentials: {
-        nationalId: { label: "کد ملی", type: "text" },
-        code: { label: "کد تایید", type: "text" },
+        nationalId: {
+          label: "کد ملی",
+          type: "text",
+        },
+        code: {
+          label: "کد تایید",
+          type: "text",
+        },
       },
+
       authorize: async (credentials) => {
-        const { nationalId, code } = credentials as { nationalId: string, code: string }
-        if (!nationalId || !code) return null
-
-        const user = await prisma.user.findUnique({ where: { nationalId } })
-        if (!user || !user.isActive) return null
-
-        const otp = await prisma.otp.findFirst({
-          where: { phone: user.phone, expiresAt: { gt: new Date() } }
-        })
-
-        if (!otp) return null
-
-        // 1. Verify Hashing
-        const hashedInput = crypto.createHmac("sha256", OTP_SECRET).update(code).digest("hex")
-        
-        if (otp.hashedCode !== hashedInput) {
-          // Increment failed attempts
-          await prisma.otp.update({
-            where: { id: otp.id },
-            data: { attempts: { increment: 1 } }
-          })
-          // Delete if too many attempts
-          if (otp.attempts >= 4) {
-            await prisma.otp.delete({ where: { id: otp.id } })
-          }
+        if (!OTP_SECRET) {
+          console.error("AUTH_SECRET is missing")
           return null
         }
 
-        // Success: Delete OTP
-        await prisma.otp.delete({ where: { id: otp.id } })
+        const rawNationalId = String(credentials?.nationalId || "")
+        const rawCode = String(credentials?.code || "")
 
-        return { id: user.id, name: user.fullName, role: user.role, nationalId: user.nationalId }
-      }
-    })
+        const nationalId = normalizeNationalId(rawNationalId)
+        const code = normalizeDigits(rawCode).replace(/\D/g, "")
+
+        if (
+          !isValidNationalIdFormat(nationalId) ||
+          !/^\d{5}$/.test(code)
+        ) {
+          return null
+        }
+
+        const user = await prisma.user.findFirst({
+          where: {
+            nationalId: {
+              in: nationalIdVariants(nationalId),
+            },
+          },
+        })
+
+        if (!user || !user.isActive) {
+          return null
+        }
+
+        const otp = await prisma.otp.findFirst({
+          where: {
+            phone: user.phone,
+            expiresAt: { gt: new Date() },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        })
+
+        if (!otp || otp.attempts >= 5) {
+          return null
+        }
+
+        const hashedInput = crypto
+          .createHmac("sha256", OTP_SECRET)
+          .update(code)
+          .digest("hex")
+
+        const storedHash = Buffer.from(otp.hashedCode, "hex")
+        const inputHash = Buffer.from(hashedInput, "hex")
+
+        const isCorrect =
+          storedHash.length === inputHash.length &&
+          crypto.timingSafeEqual(storedHash, inputHash)
+
+        if (!isCorrect) {
+          const updated = await prisma.otp.update({
+            where: { id: otp.id },
+            data: {
+              attempts: { increment: 1 },
+            },
+          })
+
+          if (updated.attempts >= 5) {
+            await prisma.otp.delete({
+              where: { id: otp.id },
+            })
+          }
+
+          return null
+        }
+
+        await prisma.otp.delete({
+          where: { id: otp.id },
+        })
+
+        return {
+          id: user.id,
+          name: user.fullName,
+          role: user.role,
+          nationalId: user.nationalId,
+        }
+      },
+    }),
   ],
+
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id
         token.role = user.role
       } else if (token.id) {
-        // 2. Session Revocation & Role Sync
-        // We query the DB on every JWT verification. To optimize, you can 
-        // cache this or only check every X minutes, but for strict security, 
-        // we verify the user is still active and their role hasn't changed.
         const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { isActive: true, role: true }
+          where: {
+            id: token.id as string,
+          },
+          select: {
+            isActive: true,
+            role: true,
+          },
         })
-        
+
         if (!dbUser || !dbUser.isActive) {
-          return null // Revoke session entirely
+          return null
         }
-        
-        // Sync role changes (e.g., if student became counselor)
+
         token.role = dbUser.role
       }
+
       return token
     },
+
     session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string
         session.user.role = token.role as string
       }
+
       return session
-    }
+    },
   },
+
   pages: {
     signIn: "/login",
-  }
+  },
 })
