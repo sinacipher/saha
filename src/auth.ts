@@ -6,6 +6,7 @@ import crypto from "crypto"
 const OTP_SECRET = process.env.AUTH_SECRET || "fallback-secret"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+    trustHost: true,
   providers: [
     Credentials({
       credentials: {

@@ -76,3 +76,38 @@ body {
   color: var(--foreground);
   font-family: var(--font-vazirmatn), sans-serif;
 }
+
+@keyframes saha-drawer-enter {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes saha-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.saha-drawer-enter {
+  animation: saha-drawer-enter 250ms ease-out both;
+}
+
+.saha-backdrop-enter {
+  animation: saha-backdrop-enter 200ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saha-drawer-enter,
+  .saha-backdrop-enter {
+    animation: none;
+  }
+}

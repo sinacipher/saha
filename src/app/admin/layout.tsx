@@ -1,9 +1,6 @@
-
 import { auth, signOut } from "@/auth"
 import { redirect } from "next/navigation"
-import AdminShell from "@/components/admin/admin-shell"
-import { Button } from "@/components/ui/button"
-import { LogOut } from "lucide-react"
+import DashboardShell from "@/components/dashboard/dashboard-shell"
 
 export default async function AdminLayout({
   children,
@@ -16,28 +13,18 @@ export default async function AdminLayout({
     redirect("/login")
   }
 
+  async function logoutAction() {
+    "use server"
+    await signOut({ redirectTo: "/login" })
+  }
+
   return (
-    <AdminShell
-      userName={session.user.name ?? "مدیر سیستم"}
-      logout={
-        <form
-          action={async () => {
-            "use server"
-            await signOut({ redirectTo: "/login" })
-          }}
-        >
-          <Button
-            type="submit"
-            variant="ghost"
-            className="h-11 w-full justify-start gap-3 text-danger hover:bg-danger/10 hover:text-danger"
-          >
-            <LogOut className="h-5 w-5" />
-            خروج از حساب
-          </Button>
-        </form>
-      }
+    <DashboardShell
+      role="ADMIN"
+      userName={session.user.name ?? "مدیر"}
+      logoutAction={logoutAction}
     >
       {children}
-    </AdminShell>
+    </DashboardShell>
   )
 }
