@@ -1,16 +1,16 @@
-export async function sendSmsOtp(phone: string, code: string) {
-  const apiKey = process.env.SMS_API_KEY
-
-  // Always log the OTP so you can see it in Vercel Logs
-  console.log(`\n=========================================`)
-  console.log(`🔑 OTP for ${phone} : ${code}`)
-  console.log(`=========================================\n`)
-
-  if (!apiKey) {
-    // No SMS provider configured — OTP is only in the logs.
-    // Login will still work.
+/**
+ * Development-only OTP output.
+ * Production must fail closed until a real SMS provider adapter is configured.
+ */
+export async function sendSmsOtp(phone: string, code: string): Promise<void> {
+  if (process.env.NODE_ENV === "development") {
+    const digits = phone.replace(/\D/g, "")
+    const suffix = digits.slice(-4).padStart(4, "*")
+    console.info(`[DEV OTP] Phone ending ${suffix}: ${code}`)
     return
   }
 
-  // TODO: Real SMS provider integration here later
+  throw new Error(
+    "ارسال پیامک در محیط عملیاتی پیکربندی نشده است. اتصال سرویس پیامک الزامی است.",
+  )
 }

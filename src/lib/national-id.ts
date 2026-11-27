@@ -18,15 +18,11 @@ export function isValidNationalIdFormat(value: string): boolean {
 
 export function nationalIdVariants(value: string): string[] {
   const normalized = normalizeNationalId(value)
-
-  if (!isValidNationalIdFormat(normalized)) {
-    return []
-  }
+  if (!isValidNationalIdFormat(normalized)) return []
 
   const persian = Array.from(normalized, (digit) =>
     String.fromCharCode(0x06f0 + Number(digit))
   ).join("")
-
   const arabic = Array.from(normalized, (digit) =>
     String.fromCharCode(0x0660 + Number(digit))
   ).join("")

@@ -1,4 +1,4 @@
-# SAHA Database Migration Workflow
+# REMO Database Migration Workflow
 
 ## For Developers (Development)
 1. Modify `prisma/schema.prisma`.

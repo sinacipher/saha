@@ -1,4 +1,4 @@
-SAHA — COUNSELOR / ADMIN EXAM SYNC
+REMO — COUNSELOR / ADMIN EXAM SYNC
 
 This bundle aligns the exam workflow in the admin and counselor panels.
 It is based on the current main-branch files inspected on 27 November 2026.
@@ -44,7 +44,7 @@ IMPORTANT
 - Only ADMIN can delete an exam. The UI sends DELETE to the existing
   /api/simple-exams/{id}/file endpoint.
 - This bundle updates only the exam-related files and dashboard navigation.
-  It does not replace unrelated parts of the SAHA project.
+  It does not replace unrelated parts of the REMO project.
 - The files have been assembled against the current GitHub main source, but this
   environment cannot run your project against your local DATABASE_URL. Run the
   lint, TypeScript, and build checks locally before committing.

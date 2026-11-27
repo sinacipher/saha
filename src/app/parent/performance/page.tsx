@@ -48,7 +48,7 @@ export default async function ParentPerformancePage() {
     )
   }
 
-  const attemptsByStudent = await getSimpleExamAttemptsByStudent([child.id])
+  const attemptsByStudent = await getSimpleExamAttemptsByStudent([child.id], { onlyPublished: true })
 
   const students: PerformanceStudent[] = [
     {

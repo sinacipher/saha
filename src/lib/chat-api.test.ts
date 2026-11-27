@@ -13,14 +13,10 @@ vi.mock("@/lib/prisma", () => ({
     $transaction: vi.fn(),
   },
 }))
-vi.mock("@/lib/chat-auth", () => ({
-  isAuthorizedToChat: vi.fn(),
-}))
+vi.mock("@/lib/chat-auth", () => ({ isAuthorizedToChat: vi.fn() }))
 
 describe("Chat API Routes", () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
+  beforeEach(() => vi.clearAllMocks())
 
   it("GET: Reject unauthenticated requests", async () => {
     vi.mocked(auth).mockResolvedValue(null as any)
@@ -59,7 +55,6 @@ describe("Chat API Routes", () => {
     const { isAuthorizedToChat } = await import("@/lib/chat-auth")
     vi.mocked(isAuthorizedToChat).mockResolvedValue(true)
 
-    // Mock the transaction: execute the callback with a fake tx
     vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => {
       const tx = {
         message: {
@@ -77,6 +72,7 @@ describe("Chat API Routes", () => {
 
     const req = new Request("http://localhost/api/chat", {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ receiverId: "counselor-1", content: "سلام استاد" }),
     })
     const res = await POST(req)

@@ -1,46 +1,56 @@
-# SAHA (سحا) - Educational Management Platform
+# ریمو | سامانه هوشمند مشاوره تحصیلی
 
-SAHA is a comprehensive educational management platform designed for Konkur counseling, featuring role-based access for Admins, Counselors, Students, and Parents.
+ریمو یک سامانه فارسی و راست‌چین برای مدیریت کاربران، ارتباط مشاور با دانش‌آموز و والدین، آزمون‌های تستی و گزارش عملکرد تحصیلی است.
 
-## Technology Stack
-- **Framework:** Next.js 16 (App Router, Turbopack)
-- **Language:** TypeScript (Strict mode)
-- **Database ORM:** Prisma 6
-- **Database:** PostgreSQL (Neon)
-- **Authentication:** NextAuth.js v5 (OTP based)
-- **Styling:** Tailwind CSS v4
-- **Testing:** Vitest
+## فناوری‌ها
 
-## Getting Started
+- Next.js App Router و React
+- TypeScript
+- Tailwind CSS v4
+- NextAuth Credentials / OTP
+- Prisma ORM و PostgreSQL (Neon)
+- Vitest برای تست‌های واحد
 
-### Prerequisites
-- Node.js 20+
-- A PostgreSQL database (Neon recommended)
+## نقش‌ها و مسیرها
 
-### Installation
-1. Clone the repository
-2. Run `npm install`
-3. Copy `.env.example` to `.env` and fill in the values.
-4. Run `npx prisma migrate deploy` (for production) or `npx prisma migrate dev` (for development).
-5. Run `npx prisma generate`
-6. Start the development server: `npm run dev`
+- مدیر: `/admin` — کاربران، نظارت گفت‌وگوها، آزمون‌ها و گزارش عملکرد
+- مشاور: `/counselor` — دانش‌آموزان اختصاص‌یافته، گفت‌وگو با دانش‌آموز/والد، آزمون‌ها و گزارش‌ها
+- دانش‌آموز: `/student` — آزمون‌ها، کارنامه‌های منتشرشده و گفت‌وگو با مشاور
+- والد: `/parent` — عملکرد منتشرشده فرزند و گفت‌وگو با مشاور
 
-### Environment Variables
-Refer to `.env.example`. The `SMS_API_KEY` is required for production OTP delivery. In development, OTP codes are logged to the terminal.
+## راه‌اندازی محلی
 
-## Database Workflow
-This project uses Prisma migrations. 
-- **Development:** `npx prisma migrate dev --name migration_name`
-- **Production:** `npx prisma migrate deploy`
+نیازمندی: Node.js 22.x و PostgreSQL.
 
-## Testing
-- Run all tests: `npm test`
-- Run specific test: `npx vitest run src/lib/chat-auth.test.ts`
+1. `npm install`
+2. فایل `.env.example` را به `.env` کپی کنید و مقادیر واقعی را وارد کنید.
+3. دیتابیس باید از قبل با schema پروژه سازگار باشد.
+4. `npx prisma generate`
+5. `npm run dev`
 
-## Production Build
-Run `npm run build` to create the optimized production build.
+## متغیرهای محیطی
 
-## Known Limitations
-- SMS integration requires a valid provider API key (Kavenegar/SMS.ir).
-- Advanced PDF/DOCX exports for exam results are not yet implemented.
-- Real-time chat uses 3-second polling instead of WebSockets to maintain serverless compatibility.
+- `DATABASE_URL`: آدرس اتصال PostgreSQL
+- `AUTH_SECRET`: کلید تصادفی محرمانه برای NextAuth و هش OTP
+
+نمونه فایل در `.env.example` قرار دارد.
+
+## بررسی کیفیت
+
+```cmd
+npm test
+npm run lint
+npx tsc --noEmit
+npx prisma validate
+npm run build
+```
+
+## وضعیت اتصال پیامک
+
+ارسال واقعی پیامک هنوز به سرویس‌دهنده متصل نشده است. در حالت development کد آزمایشی در ترمینال محلی چاپ می‌شود. در محیط production ارسال OTP عمداً fail-closed است و تا زمان اتصال adapter واقعی پیامک، ورود OTP عملیاتی نخواهد بود. صرف تنظیم یک `SMS_API_KEY` بدون پیاده‌سازی درخواست سرویس‌دهنده، ارسال پیامک محسوب نمی‌شود.
+
+## محدودیت‌های شناخته‌شده
+
+- تایمر آزمون فعلی سمت کاربر است و شروع زمان به‌صورت پایدار در دیتابیس تثبیت نشده؛ تازه‌سازی صفحه می‌تواند زمان شمارش را دوباره آغاز کند. اصلاح امن آن به session شروع آزمون و migration کنترل‌شده نیاز دارد.
+- تاریخچه migration دیتابیس موجود کامل نیست. روی دیتابیس عملیاتی از `prisma db push` یا `prisma migrate dev` بدون تهیه baseline و برنامه مهاجرت استفاده نکنید.
+- آزمون‌های واحد جای تست integration و end-to-end با دیتابیس واقعی را نمی‌گیرند.

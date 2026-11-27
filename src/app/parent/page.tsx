@@ -63,7 +63,7 @@ export default async function ParentPage() {
     )
   }
 
-  const attemptsByStudent = await getSimpleExamAttemptsByStudent([child.id])
+  const attemptsByStudent = await getSimpleExamAttemptsByStudent([child.id], { onlyPublished: true })
   const attempts = attemptsByStudent.get(child.id) ?? []
   const summary = calculatePerformanceSummary(attempts)
   const counselor = profile?.student?.counselor

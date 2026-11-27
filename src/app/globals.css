@@ -1,28 +1,29 @@
 @import "tailwindcss";
 
 :root {
-  --background: #FFFBEB;
-  --foreground: #1C1917;
+  color-scheme: light;
+  --background: #F3F7F7;
+  --foreground: #102A32;
   --card: #FFFFFF;
-  --card-foreground: #1C1917;
-  --primary: #D97706;
+  --card-foreground: #102A32;
+  --primary: #0F766E;
   --primary-foreground: #FFFFFF;
-  --secondary: #B45309;
+  --secondary: #155E75;
   --secondary-foreground: #FFFFFF;
-  --muted: #FEF3C7;
-  --muted-foreground: #78716C;
-  --accent: #FEF3C7;
-  --accent-foreground: #1C1917;
+  --muted: #EAF1F2;
+  --muted-foreground: #647780;
+  --accent: #CCFBF1;
+  --accent-foreground: #134E4A;
   --destructive: #DC2626;
   --destructive-foreground: #FFFFFF;
-  --border: #E7E5E4;
-  --input: #E7E5E4;
-  --ring: #D97706;
-  --radius: 0.75rem;
-    /* === Design System Tokens (new) === */
-  --surface-base: #FAFAF9;
+  --border: #DCE7E9;
+  --input: #DCE7E9;
+  --ring: #14B8A6;
+  --radius: 0.875rem;
+
+  --surface-base: #F3F7F7;
   --surface-raised: #FFFFFF;
-  --surface-sunken: #F5F5F4;
+  --surface-sunken: #EEF4F5;
 }
 
 @theme inline {
@@ -43,71 +44,77 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-    /* === Design System Tokens (new) === */
-
-  /* Extended brand shades (complement existing --primary) */
-  --color-primary-50: #FEF3C7;
-  --color-primary-100: #FDE68A;
-  --color-primary-600: #B45309;
-  --color-primary-700: #92400E;
-
-  /* Surface elevation (three-tier layering) */
+  --color-danger: #DC2626;
+  --color-success: #059669;
+  --color-info: #0284C7;
+  --color-primary-50: #F0FDFA;
+  --color-primary-100: #CCFBF1;
+  --color-primary-600: #0D9488;
+  --color-primary-700: #0F766E;
   --color-surface-base: var(--surface-base);
   --color-surface-raised: var(--surface-raised);
   --color-surface-sunken: var(--surface-sunken);
+  --radius-sm: calc(var(--radius) - 5px);
+  --radius-md: calc(var(--radius) - 3px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 5px);
+  --shadow-card: 0 1px 3px 0 rgb(16 42 50 / 0.06), 0 1px 2px -1px rgb(16 42 50 / 0.04);
+  --shadow-card-hover: 0 10px 24px -12px rgb(16 42 50 / 0.18), 0 4px 8px -4px rgb(16 42 50 / 0.08);
+  --shadow-modal: 0 20px 25px -5px rgb(16 42 50 / 0.16), 0 8px 10px -6px rgb(16 42 50 / 0.08);
+}
 
-  /* Semantic colors */
-  --color-success: #059669;
-  --color-danger: #DC2626;
-  --color-info: #0284C7;
+* {
+  border-color: var(--border);
+}
 
-  /* Custom elevation shadows (new names — no override of shadow-sm/md/lg) */
-  --shadow-card: 0 1px 3px 0 rgb(28 25 23 / 0.06), 0 1px 2px -1px rgb(28 25 23 / 0.04);
-  --shadow-card-hover: 0 4px 6px -1px rgb(28 25 23 / 0.08), 0 2px 4px -2px rgb(28 25 23 / 0.05);
-  --shadow-modal: 0 20px 25px -5px rgb(28 25 23 / 0.12), 0 8px 10px -6px rgb(28 25 23 / 0.06);
+html {
+  min-height: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
-  background-color: var(--background);
+  min-height: 100vh;
+  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-vazirmatn), sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
-@keyframes saha-drawer-enter {
-  from {
-    transform: translateX(100%);
-  }
-
-  to {
-    transform: translateX(0);
-  }
+::selection {
+  background: rgb(20 184 166 / 0.2);
+  color: var(--foreground);
 }
 
-@keyframes saha-backdrop-enter {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }
 
-.saha-drawer-enter {
-  animation: saha-drawer-enter 250ms ease-out both;
+@keyframes remo-drawer-enter {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
 }
 
-.saha-backdrop-enter {
-  animation: saha-backdrop-enter 200ms ease-out both;
+@keyframes remo-backdrop-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.remo-drawer-enter {
+  animation: remo-drawer-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.remo-backdrop-enter {
+  animation: remo-backdrop-enter 180ms ease-out both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .saha-drawer-enter,
-  .saha-backdrop-enter {
-    animation: none;
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }

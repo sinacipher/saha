@@ -6,11 +6,28 @@ import { FeedbackProvider } from "@/components/feedback/FeedbackProvider"
 const vazirmatn = Vazirmatn({
   subsets: ["arabic", "latin"],
   variable: "--font-vazirmatn",
+  display: "swap",
 })
 
 export const metadata: Metadata = {
-  title: "سحا | پلتفرم مشاوره و کنکور",
-  description: "سیستم مدیریت مشاوره تحصیلی و کنکور",
+  title: {
+    default: "ریمو | سامانه هوشمند مشاوره تحصیلی",
+    template: "%s | ریمو",
+  },
+  applicationName: "ریمو",
+  description: "سامانه یکپارچه مدیریت مشاوره تحصیلی، ارتباط با خانواده و آزمون‌های آموزشی",
+  keywords: ["ریمو", "مشاوره تحصیلی", "کنکور", "آزمون", "کارنامه"],
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    shortcut: "/icon.svg",
+  },
+  openGraph: {
+    type: "website",
+    locale: "fa_IR",
+    siteName: "ریمو",
+    title: "ریمو | سامانه هوشمند مشاوره تحصیلی",
+    description: "مدیریت یکپارچه مشاوره، آزمون و عملکرد تحصیلی",
+  },
 }
 
 export default function RootLayout({
@@ -20,10 +37,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fa" dir="rtl">
-      <body
-        suppressHydrationWarning
-        className={`${vazirmatn.variable} font-sans antialiased`}
-      >
+      <body className={`${vazirmatn.variable} font-sans antialiased`}>
         <FeedbackProvider>{children}</FeedbackProvider>
       </body>
     </html>

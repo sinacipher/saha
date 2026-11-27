@@ -1,0 +1,40 @@
+REMO UPGRADE — INSTALLATION
+
+TARGET PROJECT
+F:\Desktop\saha
+
+IMPORTANT
+1. This ZIP is based on GitHub main commit c36b882bc540596d02d014de207ca6b7dedccb59.
+2. Back up your local work first. Do not overwrite uncommitted changes without a backup.
+3. Extract the ZIP into the project ROOT (F:\Desktop\saha), preserving all folders.
+4. Allow Windows to overwrite matching files.
+5. The included PowerShell script applies the remaining brand replacements, secures parent-visible exam results, and replaces the old Vitest config filename.
+
+COMMANDS (Windows CMD)
+
+cd /d F:\Desktop\saha
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\apply-remo-upgrade.ps1
+npm test
+npm run lint
+npx tsc --noEmit
+npx prisma validate
+npm run build
+
+DATABASE SAFETY
+- This package does not change prisma/schema.prisma.
+- It does not add or run a database migration.
+- Do NOT run prisma db push, migrate dev, migrate reset or any database reset command as part of this update.
+
+OTP / SMS
+- Local development OTP is printed to the local terminal with the phone number masked.
+- Production SMS deliberately fails until a real SMS provider integration is implemented.
+- Do not deploy production login as SMS-ready yet.
+
+DEPLOYMENT
+Only after all local checks pass:
+git status --short
+git add .
+git commit -m "Rebrand and harden Rimo platform"
+git push origin main
+
+Vercel deploys from the connected main branch. Verify the deployment reports Ready before using it.

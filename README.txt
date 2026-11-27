@@ -1,4 +1,4 @@
-SAHA — CHAT SYSTEM AND UI/UX REFRESH
+REMO — CHAT SYSTEM AND UI/UX REFRESH
 
 Copy the src folder contents into the project's src folder, preserving the folder structure and replacing existing files.
 
