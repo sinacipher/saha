@@ -23,28 +23,18 @@ export default async function TakeExamPage({
       },
     },
   })
-
   if (!exam) notFound()
 
   if (exam.attempts.length > 0) {
-    redirect(`/student/simple-exams/${id}/result`)
+    return <div className="p-10 text-center font-bold text-red-600">شما قبلاً در این آزمون شرکت کرده‌اید.</div>
   }
 
   const now = new Date()
   if (exam.startAt && now < exam.startAt) {
-    return (
-      <div className="mx-auto max-w-2xl rounded-xl border border-amber-500/20 bg-amber-500/5 p-8 text-center font-bold text-amber-700">
-        آزمون هنوز شروع نشده است.
-      </div>
-    )
+    return <div className="p-10 text-center font-bold text-red-600">آزمون هنوز شروع نشده است.</div>
   }
-
   if (exam.endAt && now >= exam.endAt) {
-    return (
-      <div className="mx-auto max-w-2xl rounded-xl border border-red-500/20 bg-red-500/5 p-8 text-center font-bold text-red-600">
-        مهلت این آزمون به پایان رسیده است.
-      </div>
-    )
+    return <div className="p-10 text-center font-bold text-red-600">مهلت این آزمون به پایان رسیده است.</div>
   }
 
   const configuredDurationSeconds = exam.durationMinutes * 60
@@ -54,11 +44,7 @@ export default async function TakeExamPage({
   const durationSeconds = Math.min(configuredDurationSeconds, remainingUntilEndSeconds)
 
   if (durationSeconds <= 0) {
-    return (
-      <div className="mx-auto max-w-2xl rounded-xl border border-red-500/20 bg-red-500/5 p-8 text-center font-bold text-red-600">
-        مهلت این آزمون به پایان رسیده است.
-      </div>
-    )
+    return <div className="p-10 text-center font-bold text-red-600">مهلت این آزمون به پایان رسیده است.</div>
   }
 
   return (
@@ -67,7 +53,7 @@ export default async function TakeExamPage({
       exam={{
         id: exam.id,
         title: exam.title,
-        instructions: exam.instructions || exam.description,
+        instructions: exam.instructions,
         questionCount: exam.questionCount,
         durationSeconds,
       }}

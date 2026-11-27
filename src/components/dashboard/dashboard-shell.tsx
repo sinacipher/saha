@@ -13,6 +13,7 @@ import {
   LogOut,
   ShieldCheck,
   GraduationCap,
+  TrendingUp,
 } from "lucide-react"
 
 type Role = "ADMIN" | "COUNSELOR" | "STUDENT" | "PARENT"
@@ -36,10 +37,12 @@ const navigation: Record<Role, NavigationItem[]> = {
     { label: "مدیریت کاربران", href: "/admin/users", icon: Users },
     { label: "همه گفت‌وگوها", href: "/admin/chats", icon: MessageSquare },
     { label: "مدیریت آزمون‌ها", href: "/admin/simple-exams", icon: FileText },
+    { label: "عملکرد تحصیلی", href: "/admin/performance", icon: TrendingUp },
   ],
   COUNSELOR: [
     { label: "دانش‌آموزان من", href: "/counselor", icon: Users },
     { label: "آزمون‌ها و نتایج", href: "/counselor/simple-exams", icon: FileText },
+    { label: "عملکرد دانش‌آموزان", href: "/counselor/performance", icon: TrendingUp },
   ],
   STUDENT: [
     { label: "داشبورد", href: "/student", icon: LayoutDashboard },
@@ -48,6 +51,7 @@ const navigation: Record<Role, NavigationItem[]> = {
   ],
   PARENT: [
     { label: "داشبورد", href: "/parent", icon: LayoutDashboard },
+    { label: "کارنامه و عملکرد فرزند", href: "/parent/performance", icon: TrendingUp },
     { label: "گفت‌وگو با مشاور", href: "/parent/chat", icon: MessageSquare },
   ],
 }
@@ -180,12 +184,18 @@ function SidebarContent({
     <>
       <div className="border-b border-border p-6">
         <h1 className="text-2xl font-extrabold text-primary">سحا</h1>
-        <p className="mt-1 text-sm text-muted-foreground">پنل {roleTitles[role]}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          پنل {roleTitles[role]}
+        </p>
       </div>
 
       <div className="m-4 flex items-center gap-3 rounded-2xl bg-muted/70 p-4">
         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-600 text-white">
-          {role === "ADMIN" ? <ShieldCheck className="h-6 w-6" /> : <GraduationCap className="h-6 w-6" />}
+          {role === "ADMIN" ? (
+            <ShieldCheck className="h-6 w-6" />
+          ) : (
+            <GraduationCap className="h-6 w-6" />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs text-muted-foreground">خوش آمدید</p>
@@ -197,6 +207,7 @@ function SidebarContent({
         {items.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
+
           return (
             <Link
               key={item.href}
@@ -208,7 +219,9 @@ function SidebarContent({
                   : "text-gray-500 hover:bg-gray-100 hover:text-gray-900"
               }`}
             >
-              {active && <span className="absolute bottom-2 right-0 top-2 w-1 rounded-l-full bg-orange-600" />}
+              {active && (
+                <span className="absolute bottom-2 right-0 top-2 w-1 rounded-l-full bg-orange-600" />
+              )}
               <Icon className="h-5 w-5 shrink-0" />
               <span className="text-sm">{item.label}</span>
             </Link>
