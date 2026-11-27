@@ -1,10 +1,12 @@
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
+import type { Prisma } from "@prisma/client"
 
 export const runtime = "nodejs"
 
 const MAX_FILE_SIZE = 4 * 1024 * 1024
+const MAX_INSTRUCTIONS_LENGTH = 4000
 const ALLOWED_TYPES = [
   "application/pdf",
   "image/jpeg",
@@ -12,15 +14,11 @@ const ALLOWED_TYPES = [
   "image/webp",
 ]
 
-function getStudentExamFilter(now: Date) {
+function getStudentExamFilter(now: Date): Prisma.SimpleExamWhereInput {
   return {
     AND: [
-      {
-        OR: [{ startAt: null }, { startAt: { lte: now } }],
-      },
-      {
-        OR: [{ endAt: null }, { endAt: { gte: now } }],
-      },
+      { OR: [{ startAt: null }, { startAt: { lte: now } }] },
+      { OR: [{ endAt: null }, { endAt: { gte: now } }] },
     ],
   }
 }
@@ -30,28 +28,34 @@ export async function GET() {
     const session = await auth()
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "ابتدا وارد حساب شوید." }, { status: 401 })
+      return NextResponse.json(
+        { error: "ابتدا وارد حساب شوید." },
+        { status: 401 },
+      )
     }
 
-    let whereClause = {}
+    let where: Prisma.SimpleExamWhereInput
 
-    if (session.user.role === "ADMIN") {
-      whereClause = {}
-    } else if (session.user.role === "COUNSELOR") {
-      whereClause = { createdById: session.user.id }
+    if (session.user.role === "ADMIN" || session.user.role === "COUNSELOR") {
+      // Counselors must also see exams created by administrators and other counselors.
+      where = {}
     } else if (session.user.role === "STUDENT") {
-      whereClause = getStudentExamFilter(new Date())
+      where = getStudentExamFilter(new Date())
     } else {
-      return NextResponse.json({ error: "دسترسی غیرمجاز است." }, { status: 403 })
+      return NextResponse.json(
+        { error: "دسترسی غیرمجاز است." },
+        { status: 403 },
+      )
     }
 
     const exams = await prisma.simpleExam.findMany({
-      where: whereClause,
+      where,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
         title: true,
         description: true,
+        instructions: true,
         questionCount: true,
         durationMinutes: true,
         startAt: true,
@@ -62,7 +66,9 @@ export async function GET() {
       },
     })
 
-    return NextResponse.json(exams)
+    return NextResponse.json(exams, {
+      headers: { "Cache-Control": "private, no-store, max-age=0" },
+    })
   } catch (error) {
     console.error("GET /api/simple-exams:", error)
     return NextResponse.json(
@@ -87,8 +93,8 @@ export async function POST(request: Request) {
     }
 
     const formData = await request.formData()
-
     const title = String(formData.get("title") || "").trim()
+    const instructions = String(formData.get("instructions") || "").trim()
     const questionCount = Number(formData.get("questionCount"))
     const durationMinutes = Number(formData.get("durationMinutes"))
     const answerKeyRaw = String(formData.get("answerKeyJson") || "")
@@ -97,6 +103,13 @@ export async function POST(request: Request) {
     if (!title) {
       return NextResponse.json(
         { error: "عنوان آزمون الزامی است." },
+        { status: 400 },
+      )
+    }
+
+    if (instructions.length > MAX_INSTRUCTIONS_LENGTH) {
+      return NextResponse.json(
+        { error: `متن راهنمای آزمون نباید بیشتر از ${MAX_INSTRUCTIONS_LENGTH} نویسه باشد.` },
         { status: 400 },
       )
     }
@@ -147,7 +160,7 @@ export async function POST(request: Request) {
     let answerKey: Record<string, string>
 
     try {
-      answerKey = JSON.parse(answerKeyRaw)
+      answerKey = JSON.parse(answerKeyRaw) as Record<string, string>
     } catch {
       return NextResponse.json(
         { error: "فرمت کلید پاسخ نامعتبر است." },
@@ -190,6 +203,8 @@ export async function POST(request: Request) {
     const exam = await prisma.simpleExam.create({
       data: {
         title,
+        description: instructions || null,
+        instructions: instructions || null,
         fileData,
         fileName: file.name,
         fileType: file.type,
@@ -201,6 +216,7 @@ export async function POST(request: Request) {
       select: {
         id: true,
         title: true,
+        instructions: true,
         questionCount: true,
         durationMinutes: true,
         createdAt: true,
@@ -217,7 +233,6 @@ export async function POST(request: Request) {
     )
   } catch (error) {
     console.error("POST /api/simple-exams:", error)
-
     return NextResponse.json(
       { error: "ایجاد آزمون با خطای سرور مواجه شد." },
       { status: 500 },
