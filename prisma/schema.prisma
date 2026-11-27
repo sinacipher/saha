@@ -471,14 +471,15 @@ model SimpleExamAttempt {
   examId          String
   exam            SimpleExam @relation(fields: [examId], references: [id], onDelete: Cascade)
   studentId       String
-  startedAt       DateTime @default(now()) // 👈 NEW: Record exact start time
+  startedAt       DateTime @default(now()) // 👈 NEW: Record exact start time
+  deadlineAt      DateTime?
   answersJson     Json
   correctCount    Int      @default(0)
   incorrectCount  Int      @default(0)
   unansweredCount Int      @default(0)
   rawScore        Float    @default(0)
   percentage      Float    @default(0)
-  submittedAt     DateTime @default(now())
+  submittedAt     DateTime?
 
   @@unique([examId, studentId])
 }

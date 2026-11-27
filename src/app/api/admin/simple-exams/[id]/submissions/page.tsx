@@ -1,3 +1,4 @@
+
 import { auth } from "@/auth"
 import { prisma } from "@/lib/prisma"
 import { notFound, redirect } from "next/navigation"
@@ -19,7 +20,9 @@ function toAnswerMap(value: Prisma.JsonValue): Record<string, string> {
   return value as Record<string, string>
 }
 
-function formatDate(date: Date) {
+function formatDate(date: Date | null) {
+  if (!date) return "—"
+
   return new Date(date).toLocaleString("fa-IR", {
     year: "numeric",
     month: "2-digit",
@@ -46,6 +49,9 @@ export default async function SimpleExamSubmissionsPage({
     where: { id },
     include: {
       attempts: {
+        where: {
+          submittedAt: { not: null },
+        },
         orderBy: [
           { percentage: "desc" },
           { submittedAt: "asc" },
@@ -78,7 +84,6 @@ export default async function SimpleExamSubmissionsPage({
   )
 
   const answerKey = toAnswerMap(exam.answerKeyJson)
-
   const totalAttempts = exam.attempts.length
 
   const average =

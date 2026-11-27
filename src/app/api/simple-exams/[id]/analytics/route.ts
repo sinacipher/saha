@@ -16,8 +16,7 @@ export async function GET(
 
   if (session.user.role === "COUNSELOR") {
     const profiles = await prisma.studentProfile.findMany({
-      where: { counselorId: session.user.id },
-      select: { userId: true },
+      where: { counselorId: session.user.id }, select: { userId: true },
     })
     allowedStudentIds = profiles.map((profile) => profile.userId)
   }
@@ -28,7 +27,10 @@ export async function GET(
       title: true,
       questionCount: true,
       attempts: {
-        where: allowedStudentIds ? { studentId: { in: allowedStudentIds } } : undefined,
+        where: {
+          submittedAt: { not: null },
+          ...(allowedStudentIds ? { studentId: { in: allowedStudentIds } } : {}),
+        },
         orderBy: { percentage: "desc" },
       },
     },
@@ -38,8 +40,7 @@ export async function GET(
 
   const studentIds = [...new Set(exam.attempts.map((attempt) => attempt.studentId))]
   const users = await prisma.user.findMany({
-    where: { id: { in: studentIds } },
-    select: { id: true, fullName: true },
+    where: { id: { in: studentIds } }, select: { id: true, fullName: true },
   })
   const nameMap = new Map(users.map((user) => [user.id, user.fullName]))
   const count = exam.attempts.length
@@ -53,7 +54,7 @@ export async function GET(
     averagePercentage: Math.round(average * 100) / 100,
     highestPercentage: count ? Math.max(...percentages) : 0,
     lowestPercentage: count ? Math.min(...percentages) : 0,
-    studentsList: exam.attempts.map((attempt) => ({
+    studentsList: exam.attempts.filter((attempt) => attempt.submittedAt).map((attempt) => ({
       studentId: attempt.studentId,
       studentName: nameMap.get(attempt.studentId) || "ناشناس",
       percentage: attempt.percentage,

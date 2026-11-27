@@ -12,9 +12,14 @@ export default async function StudentSimpleExamsList() {
   const now = new Date()
   const exams = await prisma.simpleExam.findMany({
     where: {
-      AND: [
-        { OR: [{ startAt: null }, { startAt: { lte: now } }] },
-        { OR: [{ endAt: null }, { endAt: { gte: now } }] },
+      OR: [
+        {
+          AND: [
+            { OR: [{ startAt: null }, { startAt: { lte: now } }] },
+            { OR: [{ endAt: null }, { endAt: { gte: now } }] },
+          ],
+        },
+        { attempts: { some: { studentId: session.user.id } } },
       ],
     },
     orderBy: { createdAt: "desc" },
@@ -29,7 +34,7 @@ export default async function StudentSimpleExamsList() {
       resultsPublished: true,
       attempts: {
         where: { studentId: session.user.id },
-        select: { id: true, percentage: true },
+        select: { id: true, percentage: true, submittedAt: true },
         take: 1,
       },
     },
@@ -63,7 +68,12 @@ export default async function StudentSimpleExamsList() {
                   </div>
                   {exam.instructions && <div className="mt-4 whitespace-pre-line rounded-xl bg-muted/50 p-3 text-sm leading-6">{exam.instructions}</div>}
                 </div>
-                {attempt ? (
+                {attempt && !attempt.submittedAt ? (
+                  <div className="mt-5 space-y-2">
+                    <p className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 text-center text-sm text-blue-700 dark:text-blue-300">آزمون شما ذخیره شده و هنوز ثبت نهایی نشده است.</p>
+                    <Link href={`/student/simple-exams/${exam.id}`} className="block rounded-xl bg-primary p-3 text-center font-bold text-primary-foreground transition hover:bg-primary-600">ادامه آزمون</Link>
+                  </div>
+                ) : attempt ? (
                   exam.resultsPublished ? (
                     <div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center text-sm font-medium text-emerald-700">
                       آزمون ثبت شده است · نتیجه: {attempt.percentage}%

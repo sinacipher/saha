@@ -29,23 +29,18 @@ export async function getSimpleExamAttemptsByStudent(
   const attempts = await prisma.simpleExamAttempt.findMany({
     where: {
       studentId: { in: uniqueIds },
-      ...(options.onlyPublished
-        ? { exam: { is: { resultsPublished: true } } }
-        : {}),
+      submittedAt: { not: null },
+      ...(options.onlyPublished ? { exam: { is: { resultsPublished: true } } } : {}),
     },
     include: {
-      exam: {
-        select: {
-          id: true,
-          title: true,
-          questionCount: true,
-        },
-      },
+      exam: { select: { id: true, title: true, questionCount: true } },
     },
     orderBy: { submittedAt: "desc" },
   })
 
   for (const attempt of attempts) {
+    // Keep the public return type non-null even with nullable in-progress attempts in the model.
+    if (!attempt.submittedAt) continue
     const studentAttempts = grouped.get(attempt.studentId) ?? []
     studentAttempts.push({
       id: attempt.id,
@@ -65,20 +60,14 @@ export async function getSimpleExamAttemptsByStudent(
   return grouped
 }
 
-export function calculatePerformanceSummary(
-  attempts: SimpleExamPerformanceAttempt[],
-) {
+export function calculatePerformanceSummary(attempts: SimpleExamPerformanceAttempt[]) {
   const count = attempts.length
   const totalPercentage = attempts.reduce((sum, attempt) => sum + attempt.percentage, 0)
 
   return {
     attempts: count,
-    averagePercentage: count > 0
-      ? Math.round((totalPercentage / count) * 100) / 100
-      : 0,
-    highestPercentage: count > 0
-      ? Math.max(...attempts.map((item) => item.percentage))
-      : 0,
+    averagePercentage: count > 0 ? Math.round((totalPercentage / count) * 100) / 100 : 0,
+    highestPercentage: count > 0 ? Math.max(...attempts.map((item) => item.percentage)) : 0,
     correct: attempts.reduce((sum, item) => sum + item.correctCount, 0),
     incorrect: attempts.reduce((sum, item) => sum + item.incorrectCount, 0),
     unanswered: attempts.reduce((sum, item) => sum + item.unansweredCount, 0),

@@ -5,12 +5,7 @@ import { Prisma } from "@prisma/client"
 
 type ViewerRole = "ADMIN" | "COUNSELOR"
 
-const optionLabels: Record<string, string> = {
-  A: "الف",
-  B: "ب",
-  C: "ج",
-  D: "د",
-}
+const optionLabels: Record<string, string> = { A: "الف", B: "ب", C: "ج", D: "د" }
 
 function toAnswerMap(value: Prisma.JsonValue): Record<string, string> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {}
@@ -19,13 +14,10 @@ function toAnswerMap(value: Prisma.JsonValue): Record<string, string> {
   )
 }
 
-function formatDate(date: Date) {
+function formatDate(date: Date | null) {
+  if (!date) return "ثبت نشده"
   return new Date(date).toLocaleString("fa-IR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit",
   })
 }
 
@@ -43,60 +35,41 @@ export default async function SimpleExamSubmissionsView({
   const exam = await prisma.simpleExam.findUnique({
     where: { id: examId },
     select: {
-      id: true,
-      title: true,
-      instructions: true,
-      description: true,
-      questionCount: true,
-      answerKeyJson: true,
+      id: true, title: true, instructions: true, description: true,
+      questionCount: true, answerKeyJson: true,
     },
   })
-
   if (!exam) notFound()
 
   let assignedStudentIds: string[] | null = null
-
   if (viewerRole === "COUNSELOR") {
     const profiles = await prisma.studentProfile.findMany({
-      where: { counselorId: viewerId },
-      select: { userId: true },
+      where: { counselorId: viewerId }, select: { userId: true },
     })
     assignedStudentIds = profiles.map((profile) => profile.userId)
   }
 
   const attemptWhere: Prisma.SimpleExamAttemptWhereInput = {
     examId,
-    ...(assignedStudentIds
-      ? { studentId: { in: assignedStudentIds } }
-      : {}),
+    submittedAt: { not: null },
+    ...(assignedStudentIds ? { studentId: { in: assignedStudentIds } } : {}),
   }
-
   const attempts = await prisma.simpleExamAttempt.findMany({
     where: attemptWhere,
-    orderBy: [
-      { percentage: "desc" },
-      { submittedAt: "asc" },
-    ],
+    orderBy: [{ percentage: "desc" }, { submittedAt: "asc" }],
   })
 
   const studentIds = [...new Set(attempts.map((attempt) => attempt.studentId))]
   const students = await prisma.user.findMany({
-    where: { id: { in: studentIds } },
-    select: { id: true, fullName: true, nationalId: true },
+    where: { id: { in: studentIds } }, select: { id: true, fullName: true, nationalId: true },
   })
   const studentMap = new Map(students.map((student) => [student.id, student]))
   const answerKey = toAnswerMap(exam.answerKeyJson)
 
   const totalAttempts = attempts.length
-  const average = totalAttempts
-    ? attempts.reduce((sum, attempt) => sum + attempt.percentage, 0) / totalAttempts
-    : 0
-  const highest = totalAttempts
-    ? Math.max(...attempts.map((attempt) => attempt.percentage))
-    : 0
-  const lowest = totalAttempts
-    ? Math.min(...attempts.map((attempt) => attempt.percentage))
-    : 0
+  const average = totalAttempts ? attempts.reduce((sum, attempt) => sum + attempt.percentage, 0) / totalAttempts : 0
+  const highest = totalAttempts ? Math.max(...attempts.map((attempt) => attempt.percentage)) : 0
+  const lowest = totalAttempts ? Math.min(...attempts.map((attempt) => attempt.percentage)) : 0
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
@@ -110,12 +83,7 @@ export default async function SimpleExamSubmissionsView({
             </p>
           )}
         </div>
-        <Link
-          href={backHref}
-          className="rounded-xl border border-border px-4 py-2 text-center text-sm font-bold transition hover:bg-muted"
-        >
-          بازگشت به آزمون‌ها
-        </Link>
+        <Link href={backHref} className="rounded-xl border border-border px-4 py-2 text-center text-sm font-bold transition hover:bg-muted">بازگشت به آزمون‌ها</Link>
       </header>
 
       {viewerRole === "COUNSELOR" && (
@@ -132,32 +100,20 @@ export default async function SimpleExamSubmissionsView({
       </section>
 
       <section className="overflow-hidden rounded-2xl border border-border bg-card">
-        <div className="border-b border-border p-4">
-          <h2 className="font-bold">فهرست کارنامه‌ها</h2>
-        </div>
-
+        <div className="border-b border-border p-4"><h2 className="font-bold">فهرست کارنامه‌ها</h2></div>
         {attempts.length === 0 ? (
           <p className="p-8 text-center text-muted-foreground">
-            {viewerRole === "COUNSELOR"
-              ? "هنوز هیچ‌یک از دانش‌آموزان متصل به شما در این آزمون شرکت نکرده‌اند."
-              : "هنوز هیچ دانش‌آموزی در این آزمون شرکت نکرده است."}
+            {viewerRole === "COUNSELOR" ? "هنوز هیچ‌یک از دانش‌آموزان متصل به شما آزمون را ثبت نهایی نکرده‌اند." : "هنوز هیچ دانش‌آموزی آزمون را ثبت نهایی نکرده است."}
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-right text-sm">
-              <thead className="bg-muted">
-                <tr>
-                  <th className="px-4 py-3">رتبه</th>
-                  <th className="px-4 py-3">نام دانش‌آموز</th>
-                  {viewerRole === "ADMIN" && <th className="px-4 py-3">کد ملی</th>}
-                  <th className="px-4 py-3">صحیح</th>
-                  <th className="px-4 py-3">غلط</th>
-                  <th className="px-4 py-3">بدون پاسخ</th>
-                  <th className="px-4 py-3">نمره خام</th>
-                  <th className="px-4 py-3">درصد</th>
-                  <th className="px-4 py-3">زمان ثبت</th>
-                </tr>
-              </thead>
+              <thead className="bg-muted"><tr>
+                <th className="px-4 py-3">رتبه</th><th className="px-4 py-3">نام دانش‌آموز</th>
+                {viewerRole === "ADMIN" && <th className="px-4 py-3">کد ملی</th>}
+                <th className="px-4 py-3">صحیح</th><th className="px-4 py-3">غلط</th><th className="px-4 py-3">بدون پاسخ</th>
+                <th className="px-4 py-3">نمره خام</th><th className="px-4 py-3">درصد</th><th className="px-4 py-3">زمان ثبت</th>
+              </tr></thead>
               <tbody className="divide-y divide-border">
                 {attempts.map((attempt, index) => {
                   const student = studentMap.get(attempt.studentId)
@@ -165,9 +121,7 @@ export default async function SimpleExamSubmissionsView({
                     <tr key={attempt.id} className="hover:bg-muted/40">
                       <td className="px-4 py-3 font-bold">{index + 1}</td>
                       <td className="px-4 py-3 font-medium">{student?.fullName || "نامشخص"}</td>
-                      {viewerRole === "ADMIN" && (
-                        <td className="px-4 py-3" dir="ltr">{student?.nationalId || "-"}</td>
-                      )}
+                      {viewerRole === "ADMIN" && <td className="px-4 py-3" dir="ltr">{student?.nationalId || "-"}</td>}
                       <td className="px-4 py-3 text-green-600">{attempt.correctCount}</td>
                       <td className="px-4 py-3 text-red-600">{attempt.incorrectCount}</td>
                       <td className="px-4 py-3">{attempt.unansweredCount}</td>
@@ -204,14 +158,7 @@ export default async function SimpleExamSubmissionsView({
                 <div className="border-t border-border p-4">
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[430px] text-right text-sm">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="px-3 py-3">سوال</th>
-                          <th className="px-3 py-3">پاسخ دانش‌آموز</th>
-                          <th className="px-3 py-3">پاسخ صحیح</th>
-                          <th className="px-3 py-3">نتیجه</th>
-                        </tr>
-                      </thead>
+                      <thead className="bg-muted"><tr><th className="px-3 py-3">سوال</th><th className="px-3 py-3">پاسخ دانش‌آموز</th><th className="px-3 py-3">پاسخ صحیح</th><th className="px-3 py-3">نتیجه</th></tr></thead>
                       <tbody className="divide-y divide-border">
                         {Array.from({ length: exam.questionCount }, (_, questionIndex) => {
                           const number = String(questionIndex + 1)
@@ -221,19 +168,9 @@ export default async function SimpleExamSubmissionsView({
                           return (
                             <tr key={number}>
                               <td className="px-3 py-3 font-bold">{number}</td>
-                              <td className="px-3 py-3">
-                                {studentAnswer ? `${optionLabels[studentAnswer] || studentAnswer} (${studentAnswer})` : "بدون پاسخ"}
-                              </td>
-                              <td className="px-3 py-3 font-medium text-green-600">
-                                {correctAnswer ? `${optionLabels[correctAnswer] || correctAnswer} (${correctAnswer})` : "ثبت نشده"}
-                              </td>
-                              <td className="px-3 py-3">
-                                {!studentAnswer
-                                  ? <span className="text-muted-foreground">بدون پاسخ</span>
-                                  : correct
-                                    ? <span className="font-medium text-green-600">صحیح</span>
-                                    : <span className="font-medium text-red-600">غلط</span>}
-                              </td>
+                              <td className="px-3 py-3">{studentAnswer ? `${optionLabels[studentAnswer] || studentAnswer} (${studentAnswer})` : "بدون پاسخ"}</td>
+                              <td className="px-3 py-3 font-medium text-green-600">{correctAnswer ? `${optionLabels[correctAnswer] || correctAnswer} (${correctAnswer})` : "ثبت نشده"}</td>
+                              <td className="px-3 py-3">{!studentAnswer ? <span className="text-muted-foreground">بدون پاسخ</span> : correct ? <span className="font-medium text-green-600">صحیح</span> : <span className="font-medium text-red-600">غلط</span>}</td>
                             </tr>
                           )
                         })}
@@ -251,19 +188,6 @@ export default async function SimpleExamSubmissionsView({
   )
 }
 
-function Metric({
-  label,
-  value,
-  color = "text-foreground",
-}: {
-  label: string
-  value: string
-  color?: string
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className={`mt-2 text-2xl font-bold ${color}`}>{value}</p>
-    </div>
-  )
+function Metric({ label, value, color = "text-foreground" }: { label: string; value: string; color?: string }) {
+  return <div className="rounded-xl border border-border bg-card p-4"><p className="text-sm text-muted-foreground">{label}</p><p className={`mt-2 text-2xl font-bold ${color}`}>{value}</p></div>
 }
