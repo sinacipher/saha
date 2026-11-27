@@ -3,72 +3,165 @@ import { prisma } from "@/lib/prisma"
 import { NextResponse } from "next/server"
 import { isAuthorizedToChat } from "@/lib/chat-auth"
 
+export const runtime = "nodejs"
+
+const MAX_MESSAGE_LENGTH = 2000
+const PAGE_SIZE = 50
+const RATE_LIMIT = 20
+const RATE_WINDOW_MS = 60_000
+
+function apiError(message: string, status: number) {
+  return NextResponse.json({ error: message }, { status })
+}
+
 export async function GET(request: Request) {
-  const session = await auth()
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  try {
+    const session = await auth()
 
-  const { searchParams } = new URL(request.url)
-  const receiverId = searchParams.get("receiverId")
+    if (!session?.user?.id) {
+      return apiError("ابتدا وارد حساب شوید.", 401)
+    }
 
-  if (!receiverId) return NextResponse.json({ error: "گیرنده مشخص نشده است" }, { status: 400 })
+    if (session.user.role === "ADMIN") {
+      return apiError("گفتگوهای مدیر فقط در بخش مشاهده گفتگوها قابل دسترسی هستند.", 403)
+    }
 
-  const isAuthorized = await isAuthorizedToChat(session.user.id, session.user.role, receiverId)
-  if (!isAuthorized) {
-    return NextResponse.json({ error: "شما مجاز به مشاهده این گفتگو نیستید" }, { status: 403 })
+    const { searchParams } = new URL(request.url)
+    const receiverId = searchParams.get("receiverId")
+    const beforeId = searchParams.get("beforeId")
+
+    if (!receiverId) {
+      return apiError("گیرنده گفتگو مشخص نشده است.", 400)
+    }
+
+    const authorized = await isAuthorizedToChat(
+      session.user.id,
+      session.user.role,
+      receiverId
+    )
+
+    if (!authorized) {
+      return apiError("شما مجاز به مشاهده این گفتگو نیستید.", 403)
+    }
+
+    const chat = await prisma.chat.findFirst({
+      where: {
+        OR: [
+          { counselorId: session.user.id, studentId: receiverId },
+          { counselorId: session.user.id, parentId: receiverId },
+          { counselorId: receiverId, studentId: session.user.id },
+          { counselorId: receiverId, parentId: session.user.id },
+        ],
+      },
+      include: {
+        messages: {
+          orderBy: [
+            { createdAt: "desc" },
+            { id: "desc" },
+          ],
+          take: PAGE_SIZE + 1,
+          ...(beforeId ? { cursor: { id: beforeId }, skip: 1 } : {}),
+        },
+      },
+    })
+
+    if (!chat) {
+      return NextResponse.json({ messages: [], hasMore: false })
+    }
+
+    const hasMore = chat.messages.length > PAGE_SIZE
+    const pageMessages = chat.messages.slice(0, PAGE_SIZE)
+    const incomingIds = pageMessages
+      .filter((message) => message.senderId !== session.user.id && !message.readAt)
+      .map((message) => message.id)
+
+    let readAt: Date | null = null
+
+    if (incomingIds.length > 0) {
+      readAt = new Date()
+      await prisma.message.updateMany({
+        where: {
+          id: { in: incomingIds },
+          readAt: null,
+        },
+        data: { readAt },
+      })
+    }
+
+    const messages = pageMessages.reverse().map((message) => ({
+      id: message.id,
+      senderId: message.senderId,
+      content: message.content,
+      createdAt: message.createdAt.toISOString(),
+      readAt: message.readAt?.toISOString() ?? (
+        message.senderId !== session.user.id && incomingIds.includes(message.id)
+          ? readAt?.toISOString() ?? null
+          : null
+      ),
+    }))
+
+    return NextResponse.json({ messages, hasMore })
+  } catch (error) {
+    console.error("[chat GET] error:", error)
+    return apiError("خطا در دریافت پیام‌های گفتگو.", 500)
   }
-
-  const chat = await prisma.chat.findFirst({
-    where: {
-      OR: [
-        { counselorId: session.user.id, studentId: receiverId },
-        { counselorId: session.user.id, parentId: receiverId },
-        { counselorId: receiverId, studentId: session.user.id },
-        { counselorId: receiverId, parentId: session.user.id }
-      ]
-    },
-    include: { messages: { orderBy: { createdAt: "asc" } } }
-  })
-
-  return NextResponse.json({ messages: chat?.messages || [] })
 }
 
 export async function POST(request: Request) {
-  const session = await auth()
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  let body;
   try {
-    body = await request.json()
-  } catch {
-    return NextResponse.json({ error: "فرمت درخواست نامعتبر است" }, { status: 400 })
-  }
+    const session = await auth()
 
-  const { receiverId, content } = body
+    if (!session?.user?.id) {
+      return apiError("ابتدا وارد حساب شوید.", 401)
+    }
 
-  if (!receiverId || typeof content !== "string" || !content.trim()) {
-    return NextResponse.json({ error: "اطلاعات پیام ناقص یا نامعتبر است" }, { status: 400 })
-  }
+    if (session.user.role === "ADMIN") {
+      return apiError("حساب مدیر در این بخش فقط اجازه مشاهده گفتگوها را دارد.", 403)
+    }
 
-  if (content.length > 2000) {
-    return NextResponse.json({ error: "متن پیام بیش از حد طولانی است (حداکثر ۲۰۰۰ کاراکتر)" }, { status: 400 })
-  }
+    let body: unknown
 
-  // Authorization check (unchanged)
-  const isAuthorized = await isAuthorizedToChat(session.user.id, session.user.role, receiverId)
-  if (!isAuthorized) {
-    return NextResponse.json({ error: "شما مجاز به ارسال پیام به این کاربر نیستید" }, { status: 403 })
-  }
+    try {
+      body = await request.json()
+    } catch {
+      return apiError("فرمت درخواست نامعتبر است.", 400)
+    }
 
-  const RATE_LIMIT = 20
-  const WINDOW_MS = 60 * 1000
-  const windowStart = new Date(Date.now() - WINDOW_MS)
+    if (!body || typeof body !== "object") {
+      return apiError("اطلاعات پیام نامعتبر است.", 400)
+    }
 
-  try {
-    // ─────────────────────────────────────────────
-    // Rate limit + insert in a single serializable transaction
-    // ─────────────────────────────────────────────
+    const payload = body as { receiverId?: unknown; content?: unknown }
+    const receiverId = payload.receiverId
+    const content = payload.content
+
+    if (
+      typeof receiverId !== "string" ||
+      !receiverId.trim() ||
+      typeof content !== "string" ||
+      !content.trim()
+    ) {
+      return apiError("گیرنده و متن پیام الزامی هستند.", 400)
+    }
+
+    const normalizedContent = content.trim()
+
+    if (normalizedContent.length > MAX_MESSAGE_LENGTH) {
+      return apiError(`حداکثر طول پیام ${MAX_MESSAGE_LENGTH} کاراکتر است.`, 400)
+    }
+
+    const authorized = await isAuthorizedToChat(
+      session.user.id,
+      session.user.role,
+      receiverId
+    )
+
+    if (!authorized) {
+      return apiError("شما مجاز به ارسال پیام به این کاربر نیستید.", 403)
+    }
+
+    const windowStart = new Date(Date.now() - RATE_WINDOW_MS)
+
     await prisma.$transaction(
       async (tx) => {
         const recentCount = await tx.message.count({
@@ -82,7 +175,6 @@ export async function POST(request: Request) {
           throw new Error("RATE_LIMITED")
         }
 
-        // Find or create chat inside the same transaction
         let chatId = (
           await tx.chat.findFirst({
             where: {
@@ -93,14 +185,25 @@ export async function POST(request: Request) {
                 { counselorId: receiverId, parentId: session.user.id },
               ],
             },
+            select: { id: true },
           })
         )?.id
 
         if (!chatId) {
-          let chatData;
+          const receiver = await tx.user.findUnique({
+            where: { id: receiverId },
+            select: { id: true, role: true },
+          })
+
+          if (!receiver) throw new Error("RECEIVER_NOT_FOUND")
+
+          let chatData: {
+            counselorId: string
+            studentId: string | null
+            parentId: string | null
+          }
+
           if (session.user.role === "COUNSELOR") {
-            const receiver = await tx.user.findUnique({ where: { id: receiverId } })
-            if (!receiver) throw new Error("RECEIVER_NOT_FOUND")
             chatData = {
               counselorId: session.user.id,
               studentId: receiver.role === "STUDENT" ? receiverId : null,
@@ -113,12 +216,17 @@ export async function POST(request: Request) {
               parentId: session.user.role === "PARENT" ? session.user.id : null,
             }
           }
+
           const newChat = await tx.chat.create({ data: chatData })
           chatId = newChat.id
         }
 
         await tx.message.create({
-          data: { chatId, senderId: session.user.id, content: content.trim() },
+          data: {
+            chatId,
+            senderId: session.user.id,
+            content: normalizedContent,
+          },
         })
       },
       { isolationLevel: "Serializable" }
@@ -126,34 +234,28 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    if (error instanceof Error) {
-      if (error.message === "RATE_LIMITED") {
-        const retryAfter = Math.ceil(WINDOW_MS / 1000)
-        return NextResponse.json(
-          { error: "تعداد پیام‌های ارسالی بیش از حد مجاز است. لطفاً کمی صبر کنید." },
-          {
-            status: 429,
-            headers: { "Retry-After": String(retryAfter) },
-          }
-        )
-      }
-      if (error.message === "RECEIVER_NOT_FOUND") {
-        return NextResponse.json({ error: "کاربر یافت نشد" }, { status: 404 })
-      }
+    if (error instanceof Error && error.message === "RATE_LIMITED") {
+      return NextResponse.json(
+        { error: "تعداد پیام‌های ارسالی بیش از حد مجاز است. لطفاً کمی صبر کنید." },
+        { status: 429, headers: { "Retry-After": String(RATE_WINDOW_MS / 1000) } }
+      )
     }
 
-    // Prisma transaction conflict (concurrent retries exhausted)
+    if (error instanceof Error && error.message === "RECEIVER_NOT_FOUND") {
+      return apiError("کاربر موردنظر پیدا نشد.", 404)
+    }
+
     if (typeof error === "object" && error !== null && "code" in error) {
       const code = (error as { code?: string }).code
       if (code === "P2034" || code === "P2002") {
         return NextResponse.json(
-          { error: "درخواست شما با درخواست دیگری تداخل داشت. لطفاً دوباره تلاش کنید." },
+          { error: "درخواست با عملیات دیگری تداخل داشت. دوباره تلاش کنید." },
           { status: 429, headers: { "Retry-After": "5" } }
         )
       }
     }
 
     console.error("[chat POST] error:", error)
-    return NextResponse.json({ error: "خطا در ذخیره پیام" }, { status: 500 })
+    return apiError("خطا در ذخیره پیام.", 500)
   }
 }

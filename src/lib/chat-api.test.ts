@@ -38,7 +38,7 @@ describe("Chat API Routes", () => {
     const res = await POST(req)
     expect(res.status).toBe(400)
     const data = await res.json()
-    expect(data.error).toContain("ناقص")
+    expect(data.error).toContain("الزامی هستند")
   })
 
   it("POST: Reject unauthorized conversations", async () => {

@@ -3,29 +3,46 @@ import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import ChatUI from "@/components/ChatUI"
 
+export const dynamic = "force-dynamic"
+
 export default async function ParentChatPage() {
   const session = await auth()
-  if (!session || session.user.role !== "PARENT") redirect("/login")
+  if (!session?.user?.id || session.user.role !== "PARENT") redirect("/login")
 
-  // پیدا کردن دانش‌آموز و مشاور او
   const profile = await prisma.parentProfile.findUnique({
     where: { userId: session.user.id },
-    include: { student: { include: { counselor: true } } }
+    include: {
+      student: {
+        include: { counselor: true, user: true },
+      },
+    },
   })
 
   const counselor = profile?.student?.counselor
 
-  if (!counselor) {
-    return <div className="p-10 text-center text-muted-foreground">هنوز مشاوری برای فرزند شما تعیین نشده است.</div>
+  if (!profile?.student || !counselor) {
+    return (
+      <div className="mx-auto flex min-h-[420px] max-w-3xl flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card p-8 text-center">
+        <h1 className="text-xl font-bold">ارتباط مشاور در دسترس نیست</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          برای دانش‌آموز متصل به این حساب، هنوز مشاوری تعیین نشده است.
+        </p>
+      </div>
+    )
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">چت با مشاور</h1>
-      <ChatUI 
-        currentUserId={session.user.id} 
-        receiverId={counselor.id} 
-        receiverName={counselor.fullName || "مشاور"} 
+    <div className="mx-auto max-w-5xl space-y-5">
+      <header>
+        <h1 className="text-2xl font-bold">گفتگو با مشاور فرزند</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          دانش‌آموز: {profile.student.user.fullName || "بدون نام"}
+        </p>
+      </header>
+      <ChatUI
+        currentUserId={session.user.id}
+        receiverId={counselor.id}
+        receiverName={counselor.fullName || "مشاور"}
       />
     </div>
   )
