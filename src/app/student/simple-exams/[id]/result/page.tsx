@@ -2,63 +2,179 @@ import { prisma } from "@/lib/prisma"
 import { auth } from "@/auth"
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
+import {
+  CheckCircle2,
+  XCircle,
+  MinusCircle,
+  Award,
+} from "lucide-react"
 
-export default async function SimpleExamResultPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SimpleExamResultPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   const { id } = await params
+
   const session = await auth()
-  if (!session?.user?.id) redirect("/login")
 
-  const attempt = await prisma.simpleExamAttempt.findUnique({
-    where: { examId_studentId: { examId: id, studentId: session.user.id } },
-    include: { exam: true }
-  })
-
-  if (!attempt) notFound()
-
-  // 👇 SECURITY CHECK: Prevent viewing results if not published yet 👇
-  if (!attempt.exam.resultsPublished) {
-    return (
-      <div className="max-w-2xl mx-auto p-10 mt-10 text-center bg-card border rounded-xl shadow-sm space-y-4">
-        <h1 className="text-2xl font-bold text-muted-foreground">پاسخ شما با موفقیت ثبت شد</h1>
-        <p>نتایج این آزمون هنوز توسط مشاور یا مدیر منتشر نشده است. لطفاً بعداً مراجعه کنید.</p>
-        <Link href="/student/simple-exams" className="inline-block bg-primary text-white px-6 py-2 rounded-lg">بازگشت</Link>
-      </div>
-    )
+  if (!session?.user?.id) {
+    redirect("/login")
   }
 
+  if (session.user.role !== "STUDENT") {
+    redirect("/dashboard")
+  }
+
+  const attempt = await prisma.simpleExamAttempt.findUnique({
+    where: {
+      examId_studentId: {
+        examId: id,
+        studentId: session.user.id,
+      },
+    },
+    include: {
+      exam: {
+        select: {
+          id: true,
+          title: true,
+          questionCount: true,
+        },
+      },
+    },
+  })
+
+  if (!attempt) {
+    notFound()
+  }
+
+  const resultCards = [
+    {
+      label: "پاسخ صحیح",
+      value: attempt.correctCount,
+      icon: CheckCircle2,
+      color: "text-green-600",
+      background: "bg-green-500/10",
+    },
+    {
+      label: "پاسخ غلط",
+      value: attempt.incorrectCount,
+      icon: XCircle,
+      color: "text-red-600",
+      background: "bg-red-500/10",
+    },
+    {
+      label: "بدون پاسخ",
+      value: attempt.unansweredCount,
+      icon: MinusCircle,
+      color: "text-muted-foreground",
+      background: "bg-muted",
+    },
+    {
+      label: "درصد نهایی",
+      value: `${attempt.percentage}%`,
+      icon: Award,
+      color: "text-blue-600",
+      background: "bg-blue-500/10",
+    },
+  ]
+
+  const submittedAt = new Intl.DateTimeFormat("fa-IR", {
+    dateStyle: "long",
+    timeStyle: "short",
+  }).format(attempt.submittedAt)
+
   return (
-    <div className="max-w-2xl mx-auto mt-10">
-      <div className="bg-card border border-border rounded-xl p-8 shadow-sm text-center space-y-6">
-        <h1 className="text-3xl font-bold text-primary">کارنامه آزمون</h1>
-        <h2 className="text-xl font-bold">{attempt.exam.title}</h2>
-        
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-6">
-          <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
-            <p className="text-sm text-green-700">پاسخ صحیح</p>
-            <p className="text-2xl font-bold text-green-600">{attempt.correctCount}</p>
-          </div>
-          <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
-            <p className="text-sm text-red-700">پاسخ غلط</p>
-            <p className="text-2xl font-bold text-red-600">{attempt.incorrectCount}</p>
-          </div>
-          <div className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
-            <p className="text-sm text-gray-700">بدون پاسخ</p>
-            <p className="text-2xl font-bold text-gray-600">{attempt.unansweredCount}</p>
-          </div>
-          <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-            <p className="text-sm text-blue-700">درصد نهایی</p>
-            <p className="text-2xl font-bold text-blue-600">{attempt.percentage}%</p>
-          </div>
+    <main className="mx-auto mt-8 max-w-3xl space-y-6 p-4 md:mt-12 md:p-6">
+      <header className="rounded-2xl border border-border bg-card p-7 text-center shadow-sm">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-green-500/10 text-green-600">
+          <Award className="h-9 w-9" />
         </div>
 
-        <div className="text-lg font-bold bg-muted p-4 rounded-lg">
-          نمره خام: {attempt.rawScore} از {attempt.exam.questionCount * 3}
+        <p className="text-sm font-bold text-green-600">
+          آزمون با موفقیت ثبت و تصحیح شد
+        </p>
+
+        <h1 className="mt-3 text-2xl font-bold md:text-3xl">
+          کارنامه آزمون
+        </h1>
+
+        <h2 className="mt-3 text-lg font-medium text-muted-foreground">
+          {attempt.exam.title}
+        </h2>
+
+        <p className="mt-2 text-sm text-muted-foreground">
+          زمان ثبت: {submittedAt}
+        </p>
+      </header>
+
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {resultCards.map((item) => {
+          const Icon = item.icon
+
+          return (
+            <div
+              key={item.label}
+              className="rounded-2xl border border-border bg-card p-4 text-center shadow-sm"
+            >
+              <div
+                className={`mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl ${item.background} ${item.color}`}
+              >
+                <Icon className="h-5 w-5" />
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                {item.label}
+              </p>
+
+              <p className={`mt-2 text-2xl font-bold ${item.color}`}>
+                {item.value}
+              </p>
+            </div>
+          )
+        })}
+      </section>
+
+      <section className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <h2 className="font-bold">خلاصه عملکرد</h2>
+
+        <div className="mt-5 flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">درصد آزمون</span>
+          <span className="font-bold">{attempt.percentage}%</span>
         </div>
 
-        <Link href="/student/simple-exams" className="block bg-primary text-white py-3 rounded-lg font-bold hover:bg-primary/90 transition">
-          بازگشت به لیست آزمون‌ها
-        </Link>
-      </div>
-    </div>
+        <div className="mt-3 h-3 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{
+              width: `${Math.min(100, Math.max(0, attempt.percentage))}%`,
+            }}
+          />
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-4 text-sm">
+          <div className="rounded-xl bg-muted/50 p-4">
+            <p className="text-muted-foreground">نمره خام</p>
+            <p className="mt-2 text-lg font-bold">
+              {attempt.rawScore}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-muted/50 p-4">
+            <p className="text-muted-foreground">حداکثر نمره خام</p>
+            <p className="mt-2 text-lg font-bold">
+              {attempt.exam.questionCount * 3}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <Link
+        href="/student/simple-exams"
+        className="block rounded-xl bg-primary px-5 py-4 text-center font-bold text-primary-foreground transition hover:opacity-90"
+      >
+        بازگشت به آزمون‌ها
+      </Link>
+    </main>
   )
 }

@@ -2,6 +2,13 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { useFeedback } from "@/components/feedback/FeedbackProvider"
+import {
+  Clock3,
+  Download,
+  Loader2,
+  Send,
+} from "lucide-react"
 
 type Exam = {
   id: string
@@ -18,6 +25,7 @@ export default function ExamUI({
   exam: Exam
 }) {
   const router = useRouter()
+  const { notify, confirmAction } = useFeedback()
 
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [timeLeft, setTimeLeft] = useState(exam.durationSeconds)
@@ -25,21 +33,48 @@ export default function ExamUI({
   const [message, setMessage] = useState("")
 
   const submittedRef = useRef(false)
+  const isSubmittingRef = useRef(false)
+  const confirmationPendingRef = useRef(false)
+  const autoSubmitStartedRef = useRef(false)
 
   const handleSubmit = useCallback(
     async (auto = false) => {
-      if (submittedRef.current) return
-
-      if (!auto && !confirm("آیا از ثبت نهایی آزمون اطمینان دارید؟")) {
+      if (
+        submittedRef.current ||
+        isSubmittingRef.current ||
+        (!auto && confirmationPendingRef.current)
+      ) {
         return
       }
 
+      if (!auto) {
+        confirmationPendingRef.current = true
+
+        const accepted = await confirmAction({
+          title: "ثبت نهایی آزمون",
+          description:
+            "بعد از ثبت نهایی، امکان تغییر پاسخ‌ها وجود ندارد.\n\n" +
+            "پاسخ‌های ثبت‌شده به صورت خودکار تصحیح می‌شوند و کارنامه شما بلافاصله نمایش داده خواهد شد.",
+          confirmLabel: "ثبت نهایی پاسخ‌ها",
+          cancelLabel: "بازگشت به آزمون",
+          danger: false,
+        })
+
+        confirmationPendingRef.current = false
+
+        if (!accepted || submittedRef.current) {
+          return
+        }
+      }
+
       submittedRef.current = true
+      isSubmittingRef.current = true
       setIsSubmitting(true)
+
       setMessage(
         auto
-          ? "زمان آزمون به پایان رسید. پاسخ‌های شما در حال ثبت خودکار هستند..."
-          : "پاسخ‌های شما در حال ثبت هستند..."
+          ? "زمان آزمون به پایان رسید. پاسخ‌ها در حال ثبت خودکار هستند..."
+          : "پاسخ‌های شما در حال ثبت و تصحیح هستند..."
       )
 
       try {
@@ -57,35 +92,44 @@ export default function ExamUI({
           }
         )
 
-        const data = await res.json()
+        const data = await res.json().catch(() => null)
 
         if (!res.ok) {
           throw new Error(
-            data.error || "ثبت پاسخ‌ها با خطا مواجه شد."
+            data?.error || "ثبت پاسخ‌ها با خطا مواجه شد."
           )
         }
 
-        setMessage(
-          auto
-            ? "زمان آزمون تمام شد و پاسخ‌های شما با موفقیت ثبت شدند."
-            : "پاسخ‌های شما با موفقیت ثبت شدند."
-        )
+        notify({
+          title: "آزمون با موفقیت ثبت شد",
+          description: "پاسخ‌ها تصحیح شدند. کارنامه در حال نمایش است.",
+          variant: "success",
+          duration: 2500,
+        })
 
         router.replace(
           `/student/simple-exams/${params.id}/result`
         )
       } catch (error) {
         submittedRef.current = false
+        isSubmittingRef.current = false
         setIsSubmitting(false)
 
-        setMessage(
+        const errorMessage =
           error instanceof Error
             ? error.message
             : "خطای نامشخص هنگام ثبت پاسخ‌ها."
-        )
+
+        setMessage(errorMessage)
+
+        notify({
+          title: "ثبت آزمون ناموفق بود",
+          description: errorMessage,
+          variant: "error",
+        })
       }
     },
-    [answers, params.id, router]
+    [answers, params.id, router, notify, confirmAction]
   )
 
   useEffect(() => {
@@ -99,7 +143,12 @@ export default function ExamUI({
   }, [timeLeft])
 
   useEffect(() => {
-    if (timeLeft === 0 && !submittedRef.current) {
+    if (
+      timeLeft === 0 &&
+      !submittedRef.current &&
+      !autoSubmitStartedRef.current
+    ) {
+      autoSubmitStartedRef.current = true
       void handleSubmit(true)
     }
   }, [timeLeft, handleSubmit])
@@ -113,46 +162,70 @@ export default function ExamUI({
     ).padStart(2, "0")}`
   }
 
+  const answeredCount = Object.keys(answers).length
+
   return (
     <main className="mx-auto max-w-4xl space-y-6 p-4 md:p-6">
-      <header className="flex flex-col justify-between gap-4 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center">
-        <h1 className="text-xl font-bold">{exam.title}</h1>
+      <header className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm sm:flex-row sm:items-center">
+        <div>
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            آزمون فعال
+          </p>
+          <h1 className="text-xl font-bold">{exam.title}</h1>
+        </div>
 
         <div
-          className={`rounded-lg px-5 py-3 text-xl font-bold ${
+          className={`flex items-center justify-center gap-3 rounded-xl px-5 py-3 text-xl font-bold ${
             timeLeft <= 60
-              ? "animate-pulse bg-red-100 text-red-700"
+              ? "animate-pulse bg-red-500/10 text-red-600"
               : "bg-muted text-foreground"
           }`}
           dir="ltr"
         >
+          <Clock3 className="h-5 w-5" />
           {formatTime(timeLeft)}
         </div>
       </header>
 
       {message && (
         <div
-          className="rounded-lg border border-border bg-muted p-4 text-sm"
           role="status"
+          aria-live="polite"
+          className={`rounded-xl border p-4 text-sm leading-7 ${
+            isSubmitting
+              ? "border-blue-500/20 bg-blue-500/5 text-blue-700 dark:text-blue-300"
+              : "border-red-500/20 bg-red-500/5 text-red-700 dark:text-red-300"
+          }`}
         >
           {message}
+
+          {timeLeft === 0 && !isSubmitting && (
+            <button
+              type="button"
+              onClick={() => void handleSubmit(true)}
+              className="mt-3 block rounded-lg bg-primary px-4 py-2 font-bold text-primary-foreground"
+            >
+              تلاش مجدد برای ثبت پاسخ‌ها
+            </button>
+          )}
         </div>
       )}
 
-      <section className="rounded-xl border border-blue-200 bg-blue-50 p-5 text-center text-blue-900">
-        <p className="mb-3">
-          فایل سؤالات را دانلود کنید و پاسخ‌ها را در فرم زیر وارد کنید.
+      <section className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5 text-center">
+        <p className="mb-4 text-sm leading-7 text-foreground">
+          فایل سوالات را دانلود کنید و سپس پاسخ هر سوال را در فرم زیر ثبت کنید.
         </p>
 
         <a
           href={`/api/simple-exams/${params.id}/file`}
-          className="inline-block rounded-lg bg-blue-600 px-6 py-2 font-bold text-white hover:bg-blue-700"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 font-bold text-white transition hover:bg-blue-700"
         >
+          <Download className="h-5 w-5" />
           دانلود فایل آزمون
         </a>
       </section>
 
-      <section className="grid grid-cols-2 gap-4 rounded-xl border border-border bg-card p-5 md:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 rounded-2xl border border-border bg-card p-4 sm:grid-cols-3 md:grid-cols-4 md:p-5">
         {Array.from(
           { length: exam.questionCount },
           (_, index) => {
@@ -161,20 +234,24 @@ export default function ExamUI({
             return (
               <div
                 key={number}
-                className="rounded-lg border border-border bg-muted/20 p-3"
+                className="rounded-xl border border-border bg-background p-3"
               >
-                <p className="mb-3 font-bold">
-                  سؤال {number}
+                <p className="mb-3 text-center font-bold">
+                  سوال {number}
                 </p>
 
                 <div className="flex justify-between gap-2">
                   {["A", "B", "C", "D"].map((option) => (
                     <label
                       key={option}
-                      className={`flex flex-1 cursor-pointer flex-col items-center rounded-lg border p-2 ${
+                      className={`flex flex-1 cursor-pointer flex-col items-center rounded-lg border p-2 transition ${
                         answers[number] === option
-                          ? "border-primary bg-primary/10"
-                          : "border-border"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border hover:bg-muted"
+                      } ${
+                        isSubmitting
+                          ? "cursor-not-allowed opacity-50"
+                          : ""
                       }`}
                     >
                       <input
@@ -182,16 +259,17 @@ export default function ExamUI({
                         name={`question-${number}`}
                         value={option}
                         checked={answers[number] === option}
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || timeLeft === 0}
                         onChange={() =>
                           setAnswers((previous) => ({
                             ...previous,
                             [number]: option,
                           }))
                         }
+                        className="accent-primary"
                       />
 
-                      <span className="mt-1 text-sm">
+                      <span className="mt-1 text-sm font-bold">
                         {option === "A"
                           ? "الف"
                           : option === "B"
@@ -209,23 +287,44 @@ export default function ExamUI({
         )}
       </section>
 
-      <div className="space-y-3">
-        <p className="text-center text-sm text-muted-foreground">
-          پاسخ داده‌شده: {Object.keys(answers).length} از{" "}
-          {exam.questionCount}
-        </p>
+      <section className="space-y-4 rounded-2xl border border-border bg-card p-5">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm text-muted-foreground">
+            تعداد پاسخ‌های ثبت‌شده
+          </span>
+          <span className="font-bold">
+            {answeredCount} از {exam.questionCount}
+          </span>
+        </div>
+
+        <div className="h-2 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-300"
+            style={{
+              width: `${(answeredCount / exam.questionCount) * 100}%`,
+            }}
+          />
+        </div>
 
         <button
           type="button"
           onClick={() => void handleSubmit(false)}
           disabled={isSubmitting || timeLeft === 0}
-          className="w-full rounded-xl bg-green-600 p-4 text-lg font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 p-4 text-lg font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isSubmitting
-            ? "در حال ثبت پاسخ‌ها..."
-            : "ثبت نهایی آزمون"}
+          {isSubmitting ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              در حال ثبت و تصحیح...
+            </>
+          ) : (
+            <>
+              <Send className="h-5 w-5" />
+              ثبت نهایی و مشاهده نتیجه
+            </>
+          )}
         </button>
-      </div>
+      </section>
     </main>
   )
 }
