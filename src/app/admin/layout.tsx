@@ -1,6 +1,9 @@
+
 import { auth, signOut } from "@/auth"
 import { redirect } from "next/navigation"
-import Link from "next/link"
+import AdminShell from "@/components/admin/admin-shell"
+import { Button } from "@/components/ui/button"
+import { LogOut } from "lucide-react"
 
 export default async function AdminLayout({
   children,
@@ -14,49 +17,27 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
-      {/* Sidebar */}
-      <aside className="w-64 border-l border-border bg-card flex flex-col">
-        <div className="p-6 border-b border-border">
-          <h1 className="text-2xl font-bold text-primary">سحا | مدیریت</h1>
-          <p className="text-sm text-muted-foreground mt-1">خوش آمدید، {session.user.name}</p>
-        </div>
-        
-        <nav className="flex-1 p-4 space-y-2">
-          <Link href="/admin" className="block px-4 py-2 rounded-lg hover:bg-muted font-medium transition">
-            داشبورد
-          </Link>
-          <Link href="/admin/users" className="block px-4 py-2 rounded-lg hover:bg-muted font-medium transition">
-            مدیریت کاربران
-          </Link>
-          <Link href="/admin/chats" className="block px-4 py-2 rounded-lg hover:bg-muted font-medium transition">
-            همه گفت‌وگوها
-          </Link>
-          
-          {/* 👇 این لینک جدید اضافه شد 👇 */}
-          <Link href="/admin/simple-exams" className="block px-4 py-2 rounded-lg hover:bg-muted font-medium transition">
-            آزمون‌های ساده (فایل)
-          </Link>
-          {/* 👆 ------------------- 👆 */}
-
-        </nav>
-
-        <div className="p-4 border-t border-border">
-          <form action={async () => {
+    <AdminShell
+      userName={session.user.name ?? "مدیر سیستم"}
+      logout={
+        <form
+          action={async () => {
             "use server"
             await signOut({ redirectTo: "/login" })
-          }}>
-            <button className="w-full text-right px-4 py-2 text-destructive hover:bg-destructive/10 rounded-lg font-medium transition">
-              خروج از حساب
-            </button>
-          </form>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="flex-1 p-8">
-        {children}
-      </main>
-    </div>
+          }}
+        >
+          <Button
+            type="submit"
+            variant="ghost"
+            className="h-11 w-full justify-start gap-3 text-danger hover:bg-danger/10 hover:text-danger"
+          >
+            <LogOut className="h-5 w-5" />
+            خروج از حساب
+          </Button>
+        </form>
+      }
+    >
+      {children}
+    </AdminShell>
   )
 }
